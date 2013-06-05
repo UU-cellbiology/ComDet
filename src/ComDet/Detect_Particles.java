@@ -54,7 +54,8 @@ public class Detect_Particles implements PlugIn {
 		//generating convolution kernel with size of PSF
 		cd.initConvKernel(cddlg);
 		//putting limiting criteria on spot size
-		cddlg.nAreaCut = cddlg.nKernelSize + 1;
+		cddlg.nAreaCut = (int) (cddlg.dPSFsigma * cddlg.dPSFsigma);
+		//cddlg.nAreaCut = cddlg.nKernelSize + 1;
 		cd.nParticlesCount = new int [imp.getStackSize()];
 		//getting active roi
 		RoiActive = imp.getRoi();

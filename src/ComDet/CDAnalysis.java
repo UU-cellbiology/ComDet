@@ -1,23 +1,33 @@
 package ComDet;
 
+import ij.IJ;
+import ij.ImagePlus;
 import ij.WindowManager;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
+import ij.measure.Measurements;
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
 import ij.plugin.filter.Convolver;
 import ij.plugin.filter.GaussianBlur;
 
+import ij.process.ByteProcessor;
+import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
+import ij.process.TypeConverter;
 import ij.text.TextWindow;
 
 import jaolho.data.lma.LMA;
 
+import java.awt.Color;
 import java.awt.Frame;
+import java.util.ArrayList;
+import java.util.Stack;
 
 import ComDet.CDDialog;
+import ComDet.OneDGaussian;
 
 
 public class CDAnalysis {
@@ -53,63 +63,51 @@ public class CDAnalysis {
 	// and particle filtering
 	void detectParticles(ImageProcessor ip, CDDialog fdg, int nFrame, Overlay SpotsPositions_, Roi RoiActive_)
 	{
-		int nGlobalThreshold;
-		double dLocalTresholdCoeff;
-		ImageProcessor dupip; //duplicate of image
-		dupip = ip.duplicate(); // dublicate of ip
+		int nThreshold;
+		int [] nNoise;
+		//double dLocalTresholdCoeff;
+		FloatProcessor dupip = null ; //duplicate of image
+		ImageProcessor dushort; //duplicate of image
+		ImageProcessor duconvolved = null; //duplicate of image		
+		ByteProcessor dubyte = null; //tresholded image
+		TypeConverter tc; 
+
 		
-		//low-pass filtering by gaussian blurring
-		lowpassGauss.blurGaussian(dupip, fdg.dPSFsigma*0.5, fdg.dPSFsigma*0.5, 0.0002);
+		dupip = (FloatProcessor) ip.duplicate().convertToFloat();
 		
+		//low-pass filtering		
+		SMLblur1Direction(dupip, fdg.dPSFsigma*0.5, 0.0002, true, (int)Math.ceil(5*fdg.dPSFsigma*0.5));
+		SMLblur1Direction(dupip, fdg.dPSFsigma*0.5, 0.0002, false, 0);
+
+		//convolution with gaussian PSF kernel		
+		SMLconvolveFloat(dupip, fConKernel, fdg.nKernelSize, fdg.nKernelSize);
+		//new ImagePlus("convoluted", dupip.duplicate()).show();
+		tc = new TypeConverter(dupip, true);
+		dushort =  tc.convertToShort();
+		//new ImagePlus("iplowpass", iplowpass.duplicate()).show();				
+			
+		//making a copy of convoluted image
+		duconvolved = dushort.duplicate();
+
+		nNoise  = getThreshold(dushort, fdg.nSensitivity);		
+		nThreshold = nNoise[0] +  fdg.nSensitivity*nNoise[1];
+		//new ImagePlus("convoluted", dushort.duplicate()).show();
 		
-		//convolution with gaussian PSF kernel
-		dupip = dupip.convertToFloat();		
-		colvolveOp.setNormalize(false);
-		colvolveOp.convolveFloat(dupip, fConKernel, fdg.nKernelSize, fdg.nKernelSize);
-		dupip = dupip.convertToShort(true);
-		//duconv= dupip.duplicate();
-		
-		//duconv= duconv.convertToFloat();		
-		//colvolveOp.convolveFloat(duconv, fConKernel, fdg.nKernelSize, fdg.nKernelSize);
-		//duconv = duconv.convertToShort(true);
-		//ImagePlus imp = new ImagePlus("result", dupip);  
-		//imp.show();  
-		//new ImagePlus("result1", dupip).show();
 		
 		//thresholding
-		imgstat = ImageStatistics.getStatistics(dupip, 22, null); //6 means MEAN + STD_DEV, look at ij.measure.Measurements
-		nGlobalThreshold = (int)(imgstat.mean + 3.0*imgstat.stdDev);
-		//nGlobalThreshold = getThreshold(dupip);
-		dLocalTresholdCoeff = ((double)fdg.nSensitivity)+3.0;
-		//dupip.threshold(nThreshold);
+		dushort.threshold(nThreshold);
 		//convert to byte
-		//dubyte  = (ByteProcessor) dupip.convertToByte(false);
+		dubyte  = (ByteProcessor) dushort.convertToByte(false);
 		
-		//morphological operations on thresholded image	
-		//dubyte.dilate(2, 0);
-		//dubyte.erode(2, 0);
+		dubyte.dilate();		
 		
-		//dubyte.dilate();		
-		//dubyte.erode();
-
-		//dupip.invert();
-		//new ImagePlus("result1", dubyte).show();
+		dubyte.erode();
 		
-		labelParticles(dupip, nFrame, nGlobalThreshold, fdg.dPSFsigma, SpotsPositions_, dLocalTresholdCoeff, RoiActive_);//, fdg.dSymmetry/100);
-		//labelParticles(dubyte, duconv, nFrame, fdg.dPixelSize, fdg.nAreaCut, fdg.dPSFsigma, fdg.dSymmetry/100);
+		//new ImagePlus("byte", dubyte.duplicate()).show();
+			
+		//labelParticles(dubyte, ip, fdg, nFrame, SpotsPositions_, RoiActive_,nNoise[1]);
+		labelParticles(dubyte, duconvolved, ip, fdg, nFrame, SpotsPositions_, RoiActive_);
 		
-
-		/*ImagePlus imp = new ImagePlus("result_decon", duconv);  
-		imp.show();
-		imp = new ImagePlus("result_threshold", dubyte);  
-		imp.show();*/
-
-		//ptable.show("Results");
-
-		//ip.setPixels(pixels)
-		//ImagePlus imp2 = new ImagePlus("result2", dupip);  
-
-		//imp2.show();  		
 	}
 	
 	//function that finds centroid x,y and area
@@ -119,68 +117,62 @@ public class CDAnalysis {
 	//and in March 2012 available by link
     //http://www.izbi.uni-leipzig.de/izbi/publikationen/publi_2004/IMS2004_JankowskiKuska.pdf
 	
-	void labelParticles(ImageProcessor ipConv,  int nFrame, double nThreshold_, double dPSFsigma_, Overlay SpotsPositions__, double coeff_, Roi RoiAct)
+	void labelParticles(ImageProcessor ipBinary,  ImageProcessor ipConvol, ImageProcessor ipRaw,  CDDialog fdg, int nFrame, Overlay SpotsPositions__, Roi RoiAct)//, boolean bIgnore)//, double dSymmetry_)
 	{
-		int width = ipConv.getWidth();
-		int height = ipConv.getHeight();
-		int nFitRadius = 3; //radius in number of SD around center point to fit Gaussian
-		int dBorder; // radius in pixels around center point to fit Gaussian
- 		
+		double dPSFsigma = fdg.dPSFsigma;
+		int width = ipBinary.getWidth();
+		int height = ipBinary.getHeight();
+		 
+		int nArea;
+		
+		int i,j;
+				
+		double dVal, dInt;
+		double dIMax;
+
+		double xCentroid, yCentroid;
+
+		boolean bBorder;
+		boolean bInRoi;
+
 		int nPatCount = 0;
+		int lab = 1;
+		int [] pos;
+		
+		Stack<int[]> sstack = new Stack<int[]>( );
+		ArrayList<int[]> stackPost = new ArrayList<int[]>( );
+		int [][] label = new int[width][height] ;
 		
 		OvalRoi spotROI;
 		
-		//int nArea;
-
-		int i,j;
-		//double dVal, dInt;
-		//double dIMax;
-		int RoiRad = (int) (2.0*dPSFsigma_);
-		
-		int xCentroid, yCentroid;
-		//boolean bBorder;
-
-		//int lab = 1;
-		int [] maxpos ;	
-		int sMax;
+		int [] nMaxPos;
+		int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma);
+		int nMaxInd, nMaxIntensity;
 		int nLocalThreshold;
-		boolean bInRoi;
+		int nListLength;
+					
 		
-		//Stack<int[]> sstack = new Stack<int[]>( );
-		//Stack<int[]> stackPost = new Stack<int[]>( );
-		//int [][] label = new int[width][height] ;
-
-		dBorder= (int)(dPSFsigma_*nFitRadius);
-		
-
-		
-		/*ImageProcessor afterFit; //duplicate of image
-		afterFit = ipRaw.duplicate();
-		double dGValue;
-		double [] dCorrsxy = new double [2];*/
-		sMax = (int) (2*nThreshold_);
-		while (sMax > nThreshold_)
-		{
-		//for (int r = 1; r < width-1; r++)
-			//for (int c = 1; c < height-1; c++) {
+		for (int r = 1; r < width-1; r++)
+			for (int c = 1; c < height-1; c++) {
 				
-				//if (ipBinary.getPixel(r,c) == 0.0) continue ;
-				//if (label[r][c] > 0.0) continue ;
+				if (ipBinary.getPixel(r,c) == 0.0) continue ;
+				if (label[r][c] > 0.0) continue ;
 				/* encountered unlabeled foreground pixel at position r, c */
 				/* it means it is a new spot! */
 				/* push the position in the stack and assign label */
-				/*sstack.push(new int [] {r, c}) ;
-				stackPost.push(new int [] {r, c}) ;
+				sstack.push(new int [] {r, c}) ;
+				stackPost.clear();
+				stackPost.add(new int [] {r, c, ipRaw.getPixel(r,c)}) ;
 				label[r][c] = lab ;
 				nArea = 0;
 				dIMax = -1000;
 				xCentroid = 0; yCentroid = 0;
 				//xMax = 0; yMax = 0;
 				dInt = 0;
-				bBorder = false;*/
+				bBorder = false;
 
 				/* start the float fill */
-				/*while ( !sstack.isEmpty()) 
+				while ( !sstack.isEmpty()) 
 				{
 					pos = (int[]) sstack.pop() ;
 					i = pos[0]; j = pos[1];
@@ -200,129 +192,169 @@ public class CDAnalysis {
 					
 					if (ipBinary.getPixel(i-1,j-1) > 0 && label[i-1][j-1] == 0) {
 						sstack.push( new int[] {i-1,j-1} );
-						stackPost.push( new int[] {i-1,j-1} );
+						stackPost.add( new int[] {i-1,j-1,ipConvol.getPixel(i-1,j-1)} );
 						label[i-1][j-1] = lab ;
 					}
 					
 					if (ipBinary.getPixel(i-1,j) > 0 && label[i-1][j] == 0) {
 						sstack.push( new int[] {i-1,j} );
-						stackPost.push( new int[] {i-1,j} );
+						stackPost.add( new int[] {i-1,j,ipConvol.getPixel(i-1,j)} );
 						label[i-1][j] = lab ;
 					}
 					
 					if (ipBinary.getPixel(i-1,j+1) > 0 && label[i-1][j+1] == 0) {
-						sstack.push( new int[] {i-1,j+1} );
-						stackPost.push( new int[] {i-1,j+1} );
+						sstack.push( new int[] {i-1,j+1,} );
+						stackPost.add( new int[] {i-1,j+1,ipConvol.getPixel(i-1,j+1)} );
 						label[i-1][j+1] = lab ;
 					}
 					
 					if (ipBinary.getPixel(i,j-1) > 0 && label[i][j-1] == 0) {
 						sstack.push( new int[] {i,j-1} );
-						stackPost.push( new int[] {i,j-1} );
+						stackPost.add( new int[] {i,j-1,ipConvol.getPixel(i,j-1)} );
 						label[i][j-1] = lab ;
 					}
 					
 					if (ipBinary.getPixel(i,j+1) > 0 && label[i][j+1] == 0) {
 						sstack.push( new int[] {i,j+1} );
-						stackPost.push( new int[] {i,j+1} );
+						stackPost.add( new int[] {i,j+1,ipConvol.getPixel(i,j+1)} );
 						label[i][j+1] = lab ;
 					}
 					if (ipBinary.getPixel(i+1,j-1) > 0 && label[i+1][j-1] == 0) {
 						sstack.push( new int[] {i+1,j-1} );
-						stackPost.push( new int[] {i+1,j-1} );
+						stackPost.add( new int[] {i+1,j-1,ipConvol.getPixel(i+1,j-1)} );
 						label[i+1][j-1] = lab ;
 					}
 				
 					if (ipBinary.getPixel(i+1,j)>0 && label[i+1][j] == 0) {
 						sstack.push( new int[] {i+1,j} );
-						stackPost.push( new int[] {i+1,j} );
+						stackPost.add( new int[] {i+1,j,ipConvol.getPixel(i+1,j)} );
 						label[i+1][j] = lab ;
 					}
 					
 					if (ipBinary.getPixel(i+1,j+1) > 0 && label[i+1][j+1] == 0) {
 						sstack.push( new int[] {i+1,j+1} );
-						stackPost.push( new int[] {i+1,j+1} );
+						stackPost.add( new int[] {i+1,j+1,ipConvol.getPixel(i+1,j+1)} );
 						label[i+1][j+1] = lab ;
 					}
 					
 				} /* end while */
-				//if(!bBorder && nArea > nAreaCut)
-				//if(!bBorder)
-				maxpos = getMaxPositions(ipConv);
-				sMax = maxpos[0];
-				xCentroid = maxpos[1];
-				yCentroid = maxpos[2];
-				if(sMax>nThreshold_)
-				{					
-					//xCentroid /= dInt;
-					//yCentroid /= dInt;
-					
-
-						if ( (xCentroid>dBorder) && (yCentroid>dBorder) && (xCentroid<(width-1-dBorder)) && (yCentroid<(height-1-dBorder)) )
-						{
 				
-							 nLocalThreshold= getLocalThreshold(ipConv, xCentroid,yCentroid,RoiRad,coeff_);
-							 //check for ROI
+				//case of single particle in the thresholded area
+				if(!bBorder && nArea > fdg.nAreaCut && nArea < fdg.nAreaMax)				
+				{					
+					xCentroid /= dInt;
+					yCentroid /= dInt;
+
+						if ( (xCentroid>0) && (yCentroid>0) && (xCentroid<(width-1)) && (yCentroid<(height-1)) )
+						{
 							 bInRoi = true;
 							 if(RoiAct!=null)
 							 {
-								 if(!RoiAct.contains(xCentroid, yCentroid))
+								 if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
 									 bInRoi=false;
 							 }
-							 if(sMax>nLocalThreshold && bInRoi)
+							 if(bInRoi)
 							 {
+						
 							
+									ptable_lock.lock();
+									ptable.incrementCounter();									
+									ptable.addValue("X_(px)",xCentroid);	
+									ptable.addValue("Y_(px)",yCentroid);
+									ptable.addValue("Frame_Number", nFrame+1);
+									//ptable.addValue("NArea", nArea);
+									
+									ptable_lock.unlock();
+									//adding spot to the overlay
+									spotROI = new OvalRoi((int)(0.5+xCentroid-2*dPSFsigma),(int)(0.5+yCentroid-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
+									spotROI.setStrokeColor(Color.yellow);	
+									spotROI.setPosition(nFrame+1);
+									SpotsPositions__.add(spotROI);
+									nPatCount++;
+
+							 }
+
+					}
+				
+				}
+				////probably many particles in the thresholded area				
+				if(nArea >= fdg.nAreaMax)
+				{
+					
+					while ( !stackPost.isEmpty()) 
+					{
+						//find element with max intensity
+						nMaxInd = getIndexofMaxIntensity(stackPost);
+						nMaxPos = stackPost.get(nMaxInd);
+						xCentroid = nMaxPos[0];
+						yCentroid = nMaxPos[1];
+						nMaxIntensity = nMaxPos[2]; 
+						//check whether it is inside ROI
+						bInRoi = true;
+						if(RoiAct!=null)
+						{
+							if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
+								bInRoi=false;
+						}
+						//yes, inside
+						if(bInRoi)
+						{
+							//check whether it is above the threshold level
+							if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
+							{
+								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity);								
+								if(nLocalThreshold>nMaxIntensity)
+									bInRoi = false;
+							}
+							else
+								bInRoi = false;
+							//all checks passed
+							if(bInRoi)
+							{
 								ptable_lock.lock();
-								ptable.incrementCounter();
-
-								/*ptable.addValue("Amplitude_fit",SMLlma.parameters[1]);
-								
-								ptable.addValue("X (px)",SMLlma.parameters[2]);							
-								ptable.addValue("Y (px)",SMLlma.parameters[3]);
-								ptable.addValue("X (nm)",SMLlma.parameters[2]*dPixelSize_);							
-								ptable.addValue("Y (nm)",SMLlma.parameters[3]*dPixelSize_);
-								ptable.addValue("Z (nm)",0);
-								ptable.addValue("False positive?", nFalsePositive);
-								ptable.addValue("X_loc_error, pix", dFitErrors[2]);
-								ptable.addValue("Y_loc_error, pix", dFitErrors[3]);
-
-								ptable.addValue("BGfit",SMLlma.parameters[0]);							
-								ptable.addValue("IntegratedInt",dIntAmp);
-								ptable.addValue("SNR", dSNR);
-
-								ptable.addValue("chi2_fit",SMLlma.chi2);*/			
-								ptable.addValue("X (px)", xCentroid);
-								ptable.addValue("Y (px)", yCentroid);
-								//ptable.addValue("nArea, pix", nArea);
-								ptable.addValue("Frame Number", nFrame+1);
-								/*ptable.addValue("Iterations_fit",SMLlma.iterationCount);
-								ptable.addValue("SD_X_fit, pix",SMLlma.parameters[4]);
-								ptable.addValue("SD_Y_fit, pix",SMLlma.parameters[5]);
-								ptable.addValue("Amp_loc_error",dFitErrors[1]);*/
+								ptable.incrementCounter();									
+								ptable.addValue("X_(px)",xCentroid);	
+								ptable.addValue("Y_(px)",yCentroid);
+								ptable.addValue("Frame_Number", nFrame+1);
+								//ptable.addValue("NArea", nArea);
 								
 								ptable_lock.unlock();
-
-								//adding overlay circle around to image  
-								spotROI = new OvalRoi((int)xCentroid-RoiRad,(int)yCentroid-RoiRad,2*RoiRad,2*RoiRad);
+								//adding spot to the overlay
+								spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
+								spotROI.setStrokeColor(Color.yellow);	
 								spotROI.setPosition(nFrame+1);
 								SpotsPositions__.add(spotROI);
+								nPatCount++;				
+							}
 
-								nPatCount++;
-							 }
+							
+						}
+						//remove maximum and its surrounding from the list
+						nListLength = stackPost.size();
+						i=0;
+						while(nListLength>0 && i<nListLength)
+						{
+							nMaxPos =stackPost.get(i);
+							if(nMaxPos[0]>=xCentroid-RoiRad && nMaxPos[0]<=xCentroid+RoiRad && nMaxPos[1]>=yCentroid-RoiRad && nMaxPos[1]<=yCentroid+RoiRad)
+							{
+								stackPost.remove(i);
+								nListLength--;
+							}
+							else
+							{
+								i++;
+							}
+							
 						}
 						
-						for(i=xCentroid-RoiRad;i<=xCentroid+RoiRad; i++)
-							for(j=yCentroid-RoiRad;j<=yCentroid+RoiRad; j++)
-							{
-								if((i>=0)&&(j>=0)&&(i<width)&&(j<height))
-									ipConv.set(i,j,0);
-								
-							}
-						
-					}
-								
-			} // end for big while cycle
-		
+					
+					}//while ( !stackPost.isEmpty())
+				
+				}
+				
+				lab++ ;
+			} // end for cycle
+				
 		this.nParticlesCount[nFrame]=nPatCount;
 		return;// label ;
 
@@ -449,30 +481,26 @@ public class CDAnalysis {
 
 	}
 	
-	int [] getMaxPositions(ImageProcessor ip)
+
+	int getIndexofMaxIntensity(ArrayList<int[]> stackPost)
 	{
-		int [] results = new int [3];
-		results[0]=0;
-		results[1]=0;
-		results[2]=0;
+		
+		int maxindex = 0;		
 		int s = 0;
 		
-		for (int i=0;i<ip.getWidth();i++)
-		{
-			for (int j=0;j<ip.getHeight();j++)
-			{
-				s=ip.get(i, j);	
-				if (s>results[0])
+		for (int i=0;i<stackPost.size();i++)
+		{					
+				if (stackPost.get(i)[2]>s)
 				{
-					results[0]=s;
-					results[1]=i;
-					results[2]=j;
+					s=stackPost.get(i)[2];
+					maxindex = i;
 				}
-			}
+			
 		}
-		return results;			
+		return maxindex;			
 	}
 
+	
 	int getLocalThreshold(ImageProcessor ip_, int x, int y, int nRad, double coeff)
 	{
 		double dIntNoise;
@@ -517,65 +545,268 @@ public class CDAnalysis {
 		
 		return (int)(dIntNoise + coeff*dSD) ;			
 	}
+
+
 	
-	//returns value of mean intensity+3*SD based on 
+	//returns value of mean intensity+nThreshold*SD based on 
 	//fitting of image histogram to gaussian function
-	int getThreshold(ImageProcessor thImage)
+	int [] getThreshold(ImageProcessor thImage, int nSDgap)
 	{
 		ImageStatistics imgstat;
-		double  [][] dHistogram;		
-		int nUpCount, nDownCount;
-		double dUpRef, dDownRef;
+		double  [][] dHistogram;
+		double  [][] dNoiseFit;
+		int nHistSize;
 		int nCount, nMaxCount;
-		int i,j;
+		int nDownCount, nUpCount;
+		int i,nPeakPos; 
+		double dRightWidth, dLeftWidth, dWidth;
 		double dMean, dSD;
+		double [] dFitErrors;
+		double dErrCoeff;
 		LMA fitlma;
+		int [] results;
+		
+		
 		
 		//mean, sd, min, max
-		imgstat = ImageStatistics.getStatistics(thImage, 38, null);
-		
-		dUpRef   = (imgstat.mean + 3.0*imgstat.stdDev);
-		dDownRef = (imgstat.mean - 3.0*imgstat.stdDev);
-		if(dUpRef>imgstat.max)
-			dUpRef=imgstat.max;
-		if(dDownRef<imgstat.min)
-			dDownRef=imgstat.min;
-		
-		nDownCount =   (int) ((dDownRef - imgstat.min)/imgstat.binSize);
-		nUpCount =   (int) ((dUpRef - imgstat.min)/imgstat.binSize);
-		if(nUpCount>255)
-			nUpCount = 255;
-
-		dHistogram = new double [2][nUpCount-nDownCount +1];
-		j=0;
-		nMaxCount = 0;
+		//imgstat = ImageStatistics.getStatistics(thImage, 38, null);
+		imgstat = ImageStatistics.getStatistics(thImage, Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
 		dMean = imgstat.mean;
-		for (i=nDownCount; i<=nUpCount; i++)
+		nPeakPos = 0;
+		
+		nHistSize = imgstat.histogram.length;		
+		dHistogram = new double [2][nHistSize];
+		nMaxCount = 0;
+	
+		//determine position and height of maximum count in histogram (mode)
+		//and height at maximum
+		for (i=0; i<nHistSize; i++)
 		{
 			
 			nCount=imgstat.histogram[i];
-			
-			dHistogram[0][j] = dDownRef + j*imgstat.binSize;
-			dHistogram[1][j] = (double)nCount;
+			dHistogram[0][i]=imgstat.min + i*imgstat.binSize;			
+			dHistogram[1][i] = (double)nCount;
 			if(nMaxCount < nCount)
 			{
 				nMaxCount= nCount;
-				dMean = dDownRef + j*imgstat.binSize;
-			}
-			j++;
+				dMean = imgstat.min + i*imgstat.binSize;
+				nPeakPos = i;
+			}			
 		}
-		fitlma = new LMA(new OneDGaussian(), new double[] {(double)nMaxCount, dMean, imgstat.stdDev}, dHistogram);
+		//estimating width of a peak
+		//going to the left
+		i=nPeakPos;
+		while (i>0 && imgstat.histogram[i]>0.5*nMaxCount)
+		{
+			i--;			
+		}
+		if(i<0)
+			i=0;
+		dLeftWidth = i;
+		//going to the right
+		i=nPeakPos;
+		while (i<nHistSize && imgstat.histogram[i]>0.5*nMaxCount)
+		{
+			i++;			
+		}
+		if(i==nHistSize)
+			i=nHistSize-1;
+		dRightWidth = i;
+		//FWHM in bins
+		dWidth = (dRightWidth-dLeftWidth);
+		dSD = dWidth*imgstat.binSize/2.35;
+		//fitting range +/- 3*SD
+		dLeftWidth = nPeakPos - 3*dWidth/2.35;
+		if(dLeftWidth<0)
+			dLeftWidth=0;
+		dRightWidth = nPeakPos + 3*dWidth/2.35;
+		if(dRightWidth>nHistSize)
+			dRightWidth=nHistSize;
+		nUpCount = (int)dRightWidth;
+		nDownCount = (int)dLeftWidth;
+		//preparing histogram range for fitting
+		dNoiseFit = new double [2][nUpCount-nDownCount+1];
+		for(i=nDownCount;i<=nUpCount;i++)
+		{
+			dNoiseFit[0][i-nDownCount] = dHistogram[0][i];
+			dNoiseFit[1][i-nDownCount] = dHistogram[1][i];
+		}
+		
+		fitlma = new LMA(new OneDGaussian(), new double[] {(double)nMaxCount, dMean, dSD}, dNoiseFit);
 		fitlma.fit();
 		dMean = fitlma.parameters[1];
 		dSD = fitlma.parameters[2];
 		
-		if (fitlma.iterationCount== 101 || dMean<imgstat.min || dMean> imgstat.max ||  dSD < imgstat.min || dSD> imgstat.max)
+		dFitErrors = fitlma.getStandardErrorsOfParameters();
+		// scaling coefficient for parameters errors estimation 
+		// (Standard deviation of residuals)
+		dErrCoeff = Math.sqrt(fitlma.chi2/(nUpCount-nDownCount+1-3));
+		for (i=0;i<3;i++)
+			dFitErrors[i] *= dErrCoeff;
+		for (i=0;i<3;i++)
+			dFitErrors[i] *= 100/fitlma.parameters[i]; 
+		
+		if (dFitErrors[1]> 20 || dMean<imgstat.min || dMean> imgstat.max ||  dSD < imgstat.min || dSD> imgstat.max)
+		{			
 			//fit somehow failed
-			return (int)(imgstat.mean + 3.0*imgstat.stdDev);
+			//return (int)(imgstat.mean + nSDgap*imgstat.stdDev);
+			results = new int [] {(int) imgstat.mean,(int) imgstat.stdDev};
+			return results;
+		}
 		else
-			return (int)(dMean + 3.0*dSD);
+		{
+			//return (int)(dMean + nSDgap*dSD);
+			results = new int [] {(int) dMean,(int) dSD};
+			return results;
+		}
 		
 		
 	}
+	
+	///Convolution speed optimized routines	
+	boolean SMLconvolveFloat(ImageProcessor dupip, float[] kernel, int kw, int kh)
+	{
+		
+		int width = dupip.getWidth();
+		int height = dupip.getHeight();
+		
+		
+		int x1 = 0;
+		int y1 = 0;
+		int x2 = x1 + width;
+		int y2 = y1 + height;
+		int uc = kw/2;    
+		int vc = kh/2;
+		float[] pixels = (float[])dupip.getPixels();
+		float[] pixels2 = (float[])dupip.getSnapshotPixels();
+		if (pixels2==null)
+			pixels2 = (float[])dupip.getPixelsCopy();
+       
+		double sum;
+		int offset, i;
+		boolean edgePixel;
+		int xedge = width-uc;
+		int yedge = height-vc;
+		
+		for(int y=y1; y<y2; y++) {
+			for(int x=x1; x<x2; x++) {
+				sum = 0.0;
+				i = 0;
+				edgePixel = y<vc || y>=yedge || x<uc || x>=xedge;
+				for(int v=-vc; v <= vc; v++) {
+					offset = x+(y+v)*width;
+					for(int u = -uc; u <= uc; u++) {
+						if (edgePixel) {
+ 							if (i>=kernel.length) // work around for JIT compiler bug on Linux
+ 								IJ.log("kernel index error: "+i);
+							sum += SMLgetPixel(x+u, y+v, pixels2, width, height)*kernel[i++];
+						} else
+							sum += pixels2[offset+u]*kernel[i++];
+					}
+		    	}
+				pixels[x+y*width] = (float)(sum);
+			}
+    	}
+	
+   		return true;
+	}
+	
+	float SMLgetPixel(int x, int y, float[] pixels, int width, int height) {
+		if (x<=0) x = 0;
+		if (x>=width) x = width-1;
+		if (y<=0) y = 0;
+		if (y>=height) y = height-1;
+		return pixels[x+y*width];
+	}
+	
+	void SMLblur1Direction( final FloatProcessor ippp, final double sigma, final double accuracy,
+            final boolean xDirection, final int extraLines) {
+        
+		final float[] pixels = (float[])ippp.getPixels();
+        final int width = ippp.getWidth();
+        final int height = ippp.getHeight();
+        final int length = xDirection ? width : height;     //number of points per line (line can be a row or column)
+        final int pointInc = xDirection ? 1 : width;        //increment of the pixels array index to the next point in a line
+        final int lineInc = xDirection ? width : 1;         //increment of the pixels array index to the next line
+        final int lineFromA = 0 - extraLines;  //the first line to process
+        final int lineFrom;
+        if (lineFromA < 0) lineFrom = 0;
+        else lineFrom = lineFromA;
+        final int lineToA = (xDirection ? height : width) + extraLines; //the last line+1 to process
+        final int lineTo;
+        if (lineToA > (xDirection ? height:width)) lineTo = (xDirection ? height:width);
+        else lineTo = lineToA;
+        final int writeFrom = 0;    //first point of a line that needs to be written
+        final int writeTo = xDirection ? width : height;
+ 
+        final float[][] gaussKernel = lowpassGauss.makeGaussianKernel(sigma, accuracy, length);
+        final int kRadius = gaussKernel[0].length;             //Gaussian kernel radius after upscaling
+        final int readFrom = (writeFrom-kRadius < 0) ? 0 : writeFrom-kRadius; //not including broadening by downscale&upscale
+        final int readTo = (writeTo+kRadius > length) ? length : writeTo+kRadius;
+        final int newLength = length;
+       
+           
+          final float[] cache1 = new float[newLength];  //holds data before convolution (after downscaling, if any)
+                  
+          int pixel0 = 0;
+          for (int line=lineFrom; line<lineTo; line ++, pixel0+=lineInc) 
+          {
+                                    int p = pixel0 + readFrom*pointInc;
+                                    for (int i=readFrom; i<readTo; i++ ,p+=pointInc)
+                                        cache1[i] = pixels[p];
+                                    SMLconvolveLine(cache1, pixels, gaussKernel, readFrom, readTo, writeFrom, writeTo, pixel0, pointInc);
+                               
+                                    
+         }
+            
+        return;
+    }
+	 
+	void SMLconvolveLine( final float[] input, final float[] pixels, final float[][] kernel, final int readFrom,
+	            final int readTo, final int writeFrom, final int writeTo, final int point0, final int pointInc) {
+	        final int length = input.length;
+	        final float first = input[0];                 //out-of-edge pixels are replaced by nearest edge pixels
+	        final float last = input[length-1];
+	        final float[] kern = kernel[0];               //the kernel itself
+	        final float kern0 = kern[0];
+	        final float[] kernSum = kernel[1];            //the running sum over the kernel
+	        final int kRadius = kern.length;
+	        final int firstPart = kRadius < length ? kRadius : length;
+	        int p = point0 + writeFrom*pointInc;
+	        int i = writeFrom;
+	        for (; i<firstPart; i++,p+=pointInc) {  //while the sum would include pixels < 0
+	            float result = input[i]*kern0;
+	            result += kernSum[i]*first;
+	            if (i+kRadius>length) result += kernSum[length-i-1]*last;
+	            for (int k=1; k<kRadius; k++) {
+	                float v = 0;
+	                if (i-k >= 0) v += input[i-k];
+	                if (i+k<length) v+= input[i+k];
+	                result += kern[k] * v;
+	            }
+	            pixels[p] = result;
+	        }
+	        final int iEndInside = length-kRadius<writeTo ? length-kRadius : writeTo;
+	        for (;i<iEndInside;i++,p+=pointInc) {   //while only pixels within the line are be addressed (the easy case)
+	            float result = input[i]*kern0;
+	            for (int k=1; k<kRadius; k++)
+	                result += kern[k] * (input[i-k] + input[i+k]);
+	            pixels[p] = result;
+	        }
+	        for (; i<writeTo; i++,p+=pointInc) {    //while the sum would include pixels >= length 
+	            float result = input[i]*kern0;
+	            if (i<kRadius) result += kernSum[i]*first;
+	            if (i+kRadius>=length) result += kernSum[length-i-1]*last;
+	            for (int k=1; k<kRadius; k++) {
+	                float v = 0;
+	                if (i-k >= 0) v += input[i-k];
+	                if (i+k<length) v+= input[i+k];
+	                result += kern[k] * v;
+	            }
+	            pixels[p] = result;
+	        }
+	    }
 
+	
+	
 }
