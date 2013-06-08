@@ -1,10 +1,7 @@
 package ComDet;
 
 import ij.IJ;
-import ij.ImagePlus;
 import ij.WindowManager;
-import ij.gui.OvalRoi;
-import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
@@ -21,8 +18,6 @@ import ij.text.TextWindow;
 
 import jaolho.data.lma.LMA;
 
-import java.awt.Color;
-import java.awt.Frame;
 import java.util.ArrayList;
 import java.util.Stack;
 
@@ -37,11 +32,11 @@ public class CDAnalysis {
 	Convolver      colvolveOp = new Convolver(); //convolution filter
 	float []		 fConKernel;  
 	int [] nParticlesCount;
+	int [][] colocstat;
 	//int nTrue;
 	//int nFalse;
 	//ResultsTable ptable = new ResultsTable(); // table with particle's approximate center coordinates
-	public ResultsTable ptable = Analyzer.getResultsTable(); // table with particle's approximate center coordinates
-	public TextWindow SummaryTable;  
+	public ResultsTable ptable = Analyzer.getResultsTable(); // table with particle's approximate center coordinates	
 	java.util.concurrent.locks.Lock ptable_lock = new java.util.concurrent.locks.ReentrantLock();
 	
 	
@@ -61,11 +56,11 @@ public class CDAnalysis {
 	// Particle finding routine based on spots enhancement with
 	// 2D PSF Gaussian approximated convolution/backgrounds subtraction, thresholding
 	// and particle filtering
-	void detectParticles(ImageProcessor ip, CDDialog fdg, int nFrame, Overlay SpotsPositions_, Roi RoiActive_)
+	void detectParticles(ImageProcessor ip, CDDialog fdg, int[] nImagePos, int nSlice, Roi RoiActive_)
 	{
 		int nThreshold;
 		int [] nNoise;
-		//double dLocalTresholdCoeff;
+		
 		FloatProcessor dupip = null ; //duplicate of image
 		ImageProcessor dushort; //duplicate of image
 		ImageProcessor duconvolved = null; //duplicate of image		
@@ -106,7 +101,7 @@ public class CDAnalysis {
 		//new ImagePlus("byte", dubyte.duplicate()).show();
 			
 		//labelParticles(dubyte, ip, fdg, nFrame, SpotsPositions_, RoiActive_,nNoise[1]);
-		labelParticles(dubyte, duconvolved, ip, fdg, nFrame, SpotsPositions_, RoiActive_);
+		labelParticles(dubyte, duconvolved, ip, fdg, nImagePos, nSlice, RoiActive_);
 		
 	}
 	
@@ -117,9 +112,9 @@ public class CDAnalysis {
 	//and in March 2012 available by link
     //http://www.izbi.uni-leipzig.de/izbi/publikationen/publi_2004/IMS2004_JankowskiKuska.pdf
 	
-	void labelParticles(ImageProcessor ipBinary,  ImageProcessor ipConvol, ImageProcessor ipRaw,  CDDialog fdg, int nFrame, Overlay SpotsPositions__, Roi RoiAct)//, boolean bIgnore)//, double dSymmetry_)
+	void labelParticles(ImageProcessor ipBinary,  ImageProcessor ipConvol, ImageProcessor ipRaw,  CDDialog fdg, int [] nImagePos, int nFrame, Roi RoiAct)//, boolean bIgnore)//, double dSymmetry_)
 	{
-		double dPSFsigma = fdg.dPSFsigma;
+		//double dPSFsigma = fdg.dPSFsigma;
 		int width = ipBinary.getWidth();
 		int height = ipBinary.getHeight();
 		 
@@ -143,7 +138,7 @@ public class CDAnalysis {
 		ArrayList<int[]> stackPost = new ArrayList<int[]>( );
 		int [][] label = new int[width][height] ;
 		
-		OvalRoi spotROI;
+		//OvalRoi spotROI;
 		
 		int [] nMaxPos;
 		int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma);
@@ -259,17 +254,21 @@ public class CDAnalysis {
 							
 									ptable_lock.lock();
 									ptable.incrementCounter();									
+									ptable.addValue("Abs_frame", nFrame+1);
 									ptable.addValue("X_(px)",xCentroid);	
 									ptable.addValue("Y_(px)",yCentroid);
-									ptable.addValue("Frame_Number", nFrame+1);
+									//ptable.addValue("Frame_Number", nFrame+1);
+									ptable.addValue("Channel", nImagePos[0]);
+									ptable.addValue("Slice", nImagePos[1]);
+									ptable.addValue("Frame", nImagePos[2]);									
 									//ptable.addValue("NArea", nArea);
 									
 									ptable_lock.unlock();
 									//adding spot to the overlay
-									spotROI = new OvalRoi((int)(0.5+xCentroid-2*dPSFsigma),(int)(0.5+yCentroid-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
+									/*spotROI = new OvalRoi((int)(0.5+xCentroid-2*dPSFsigma),(int)(0.5+yCentroid-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
 									spotROI.setStrokeColor(Color.yellow);	
 									spotROI.setPosition(nFrame+1);
-									SpotsPositions__.add(spotROI);
+									SpotsPositions__.add(spotROI);*/
 									nPatCount++;
 
 							 }
@@ -312,18 +311,23 @@ public class CDAnalysis {
 							if(bInRoi)
 							{
 								ptable_lock.lock();
-								ptable.incrementCounter();									
+								ptable.incrementCounter();
+								ptable.addValue("Abs_frame", nFrame+1);
 								ptable.addValue("X_(px)",xCentroid);	
 								ptable.addValue("Y_(px)",yCentroid);
-								ptable.addValue("Frame_Number", nFrame+1);
+								//ptable.addValue("Frame_Number", nFrame+1);
 								//ptable.addValue("NArea", nArea);
+								ptable.addValue("Channel", nImagePos[0]);
+								ptable.addValue("Slice", nImagePos[1]);
+								ptable.addValue("Frame", nImagePos[2]);
+								//ptable.addValue("Abs_count", nFrame+1);
 								
 								ptable_lock.unlock();
 								//adding spot to the overlay
-								spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
+								/*spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
 								spotROI.setStrokeColor(Color.yellow);	
 								spotROI.setPosition(nFrame+1);
-								SpotsPositions__.add(spotROI);
+								SpotsPositions__.add(spotROI);*/
 								nPatCount++;				
 							}
 
@@ -459,27 +463,7 @@ public class CDAnalysis {
 		
 	}
 	
-	//show results table
-	void showTable()
-	{
-			String sSumData ="";
-            ptable.show("Results");
-            for(int i = 0;i<nParticlesCount.length; i++)
-            	sSumData = sSumData + Integer.toString(i+1)+"\t"+Integer.toString(nParticlesCount[i])+"\n";
-			
-            Frame frame = WindowManager.getFrame("Summary");
-			if (frame!=null && (frame instanceof TextWindow) )
-			{
-				SummaryTable = (TextWindow)frame;
-				SummaryTable.getTextPanel().clear();
-				SummaryTable.getTextPanel().append(sSumData);
-				SummaryTable.getTextPanel().updateDisplay();			
-			}
-			else
-				SummaryTable = new TextWindow("Summary", "Frame Number\tNumber of Particles", sSumData, 450, 300);
-            //SummaryTable.setVisible(true);
-
-	}
+	
 	
 
 	int getIndexofMaxIntensity(ArrayList<int[]> stackPost)

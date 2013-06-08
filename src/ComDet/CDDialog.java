@@ -1,5 +1,7 @@
 package ComDet;
 
+import java.awt.Panel;
+
 import ij.Prefs;
 import ij.gui.GenericDialog;
 
@@ -21,11 +23,17 @@ public class CDDialog {
 	
 	int nSensitivity; //sensitivity of detection
 	
+	//colocalization analysis parameters
+	boolean bColocalization;
+	double dColocDistance;
+	boolean bPlotBothChannels;
+	
 	//int nDetectionMethod; //method for detecting particles
 	
 
 	//dialog showing options for particle search algorithm		
 	public boolean findParticles() {
+
 		GenericDialog fpDial = new GenericDialog("Detect Particles");
 		//String [] DetectOptions = new String [] {
 //				"1. Intensity maximum","2. Intensity shape"};
@@ -33,9 +41,13 @@ public class CDDialog {
 				"Dim particles (low SNR)", "Intermediate" ,"Bright particles (high SNR)" };
 		
 		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
-		fpDial.addNumericField("Approximate particle size, pix", Prefs.get("ComDet.dPSFsigma", 2), 3);
-		fpDial.addChoice("Sensitivity of detection (for method 1 only):", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Bright particles (high SNR)"));
-
+		fpDial.addMessage("Detection parameters:\n");
+		fpDial.addNumericField("Approximate particle size, pix", Prefs.get("ComDet.dPSFsigma", 4), 2);
+		fpDial.addChoice("Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Dim particles (low SNR)"));
+		fpDial.addMessage("\n\n Colocalization analysis:\n");
+		fpDial.addCheckbox("Calculate colocalization? (requires image with two color channels)", Prefs.get("ComDet.bColocalization", false));
+		fpDial.addNumericField("Max distance between colocalized spot, pix", Prefs.get("ComDet.dColocDistance", 4), 2);
+		fpDial.addCheckbox("Plot detected particles in both channels?", Prefs.get("ComDet.bPlotBothChannels", false));
 		   
 		fpDial.showDialog();
 		if (fpDial.wasCanceled())
@@ -47,6 +59,12 @@ public class CDDialog {
 		Prefs.set("ComDet.dPSFsigma", dPSFsigma);
 		nSensitivity = fpDial.getNextChoiceIndex();
 		Prefs.set("ComDet.Sensitivity", sSensitivityOptions[nSensitivity]);
+		bColocalization = fpDial.getNextBoolean();
+		Prefs.set("ComDet.bColocalization", bColocalization);
+		dColocDistance = fpDial.getNextNumber();
+		Prefs.set("ComDet.dColocDistance", dColocDistance);
+		bPlotBothChannels = fpDial.getNextBoolean();
+		Prefs.set("ComDet.bPlotBothChannels", bPlotBothChannels);
 		
 		nAreaMax = (int) (1.5*dPSFsigma*dPSFsigma); 
 		dPSFsigma *= 0.5;
