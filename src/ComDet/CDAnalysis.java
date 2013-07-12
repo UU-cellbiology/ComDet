@@ -1,7 +1,6 @@
 package ComDet;
 
 import ij.IJ;
-import ij.WindowManager;
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;

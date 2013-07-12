@@ -201,14 +201,21 @@ public class Detect_Particles implements PlugIn {
 			
 		}
 		IJ.showStatus("Finding particles...done.");
-		Sort_Results_CD.sorting_external_silent(cd, 5, true);
-		//Sort_Results_CD.sorting_external_silent(cd, 2, true);
-		addParticlesToOverlay();
-		imp.setOverlay(SpotsPositions);
-		imp.updateAndRepaintWindow();
-		imp.show();
-		//imp.updateAndDraw();
-		showTable();
+		if(cd.ptable.getCounter()<1)
+		{
+			IJ.showStatus("No particles found!");
+		}
+		else
+		{
+			Sort_Results_CD.sorting_external_silent(cd, 5, true);
+			//Sort_Results_CD.sorting_external_silent(cd, 2, true);
+			addParticlesToOverlay();
+			imp.setOverlay(SpotsPositions);
+			imp.updateAndRepaintWindow();
+			imp.show();
+			//imp.updateAndDraw();
+			showTable();
+		}
 
 	} 
 	
@@ -219,6 +226,7 @@ public class Detect_Particles implements PlugIn {
 		int nPatNumber;
 		Roi spotROI;
 		double dSigma = cddlg.dPSFsigma;
+		double [] absframe;
 		double [] x;
 		double [] y;
 		double [] frames;
@@ -229,6 +237,9 @@ public class Detect_Particles implements PlugIn {
 		//coordinates
 		x   = cd.ptable.getColumnAsDoubles(1);		
 		y   = cd.ptable.getColumnAsDoubles(2);
+		
+		//absolute total number
+		absframe = cd.ptable.getColumnAsDoubles(0);
 		//channel
 		channel   = cd.ptable.getColumnAsDoubles(3);
 		//slice
@@ -248,7 +259,7 @@ public class Detect_Particles implements PlugIn {
 						spotROI.setStrokeColor(colorColoc);
 					//else
 						//spotROI.setStrokeColor(colorCh2);
-					spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+					spotROI.setPosition((int)absframe[nCount]);
 					SpotsPositions.add(spotROI);									
 			}
 		}

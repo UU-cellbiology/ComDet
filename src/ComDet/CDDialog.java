@@ -38,12 +38,12 @@ public class CDDialog {
 		//String [] DetectOptions = new String [] {
 //				"1. Intensity maximum","2. Intensity shape"};
 		String [] sSensitivityOptions = new String [] {
-				"Dim particles (low SNR)", "Intermediate" ,"Bright particles (high SNR)" };
+				"Very dim particles (SNR=3)", "Dim particles (SNR=4)" ,"Bright particles (SNR=4)","Brighter particles (SNR=10)", "Very bright particles (SNR=30)" };
 		
 		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
 		fpDial.addMessage("Detection parameters:\n");
 		fpDial.addNumericField("Approximate particle size, pix", Prefs.get("ComDet.dPSFsigma", 4), 2);
-		fpDial.addChoice("Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Dim particles (low SNR)"));
+		fpDial.addChoice("Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Very dim particles (SNR=3)"));
 		fpDial.addMessage("\n\n Colocalization analysis:\n");
 		fpDial.addCheckbox("Calculate colocalization? (requires image with two color channels)", Prefs.get("ComDet.bColocalization", false));
 		fpDial.addNumericField("Max distance between colocalized spot, pix", Prefs.get("ComDet.dColocDistance", 4), 2);
@@ -72,7 +72,17 @@ public class CDDialog {
 		if(nKernelSize%2 == 0)
 			 nKernelSize++;
 		nThreads = 50;
-		nSensitivity += 3;
+		if(nSensitivity<3)
+		{
+			nSensitivity += 3;
+		}
+		else
+		{
+			if(nSensitivity == 3)
+				nSensitivity=10;
+			else
+				nSensitivity=30;
+		}
 		
 		
 		return true;
