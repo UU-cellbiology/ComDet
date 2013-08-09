@@ -70,13 +70,14 @@ public class Detect_Particles implements PlugIn {
 		    IJ.error("8 or 16 bit greyscale image required");
 		    return;
 		}
+	
 		//ok, image seems legit. 
-		
-		
-		if (!cddlg.findParticles()) return;
-		
-		//Let's get info about image		
+		//Let's get info about it	
 		imageinfo = imp.getDimensions();
+		
+		if (!cddlg.findParticles(imageinfo[2])) return;
+		
+	
 		
 		if(cddlg.bColocalization && imageinfo[2]!=2)
 		{
@@ -103,10 +104,15 @@ public class Detect_Particles implements PlugIn {
 		nStackSize = imp.getStackSize();
 		
 		//generating convolution kernel with size of PSF
-		cd.initConvKernel(cddlg);
-		//putting limiting criteria on spot size
-		cddlg.nAreaCut = (int) (cddlg.dPSFsigma * cddlg.dPSFsigma);
-		//cddlg.nAreaCut = cddlg.nKernelSize + 1;
+		if(cddlg.bTwoChannels)
+		{
+			cd.initConvKernel(cddlg,0);
+			cd.initConvKernel(cddlg,1);
+		}
+		else
+		{
+			cd.initConvKernel(cddlg,0);
+		}
 		cd.nParticlesCount = new int [nStackSize];
 		//getting active roi
 		RoiActive = imp.getRoi();
@@ -191,15 +197,7 @@ public class Detect_Particles implements PlugIn {
 			}
 		}
 		
-		if(nStackSize==1)	
-		{
-			int nRois = SpotsPositions.size();
-			for(int i = 0;i<nRois;i++)
-			{
-				SpotsPositions.get(i).setPosition(0);
-			}
-			
-		}
+
 		IJ.showStatus("Finding particles...done.");
 		if(cd.ptable.getCounter()<1)
 		{
@@ -209,7 +207,7 @@ public class Detect_Particles implements PlugIn {
 		{
 			Sort_Results_CD.sorting_external_silent(cd, 5, true);
 			//Sort_Results_CD.sorting_external_silent(cd, 2, true);
-			addParticlesToOverlay();
+			addParticlesToOverlay(nStackSize);
 			imp.setOverlay(SpotsPositions);
 			imp.updateAndRepaintWindow();
 			imp.show();
@@ -220,12 +218,13 @@ public class Detect_Particles implements PlugIn {
 	} 
 	
 	
-	void addParticlesToOverlay()
+	void addParticlesToOverlay(int nStackSize_)
 	{
 		int nCount;
 		int nPatNumber;
+		double dRadius;
 		Roi spotROI;
-		double dSigma = cddlg.dPSFsigma;
+		double [] dSigma = cddlg.dPSFsigma;
 		double [] absframe;
 		double [] x;
 		double [] y;
@@ -253,14 +252,18 @@ public class Detect_Particles implements PlugIn {
 		{
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
-	
-					spotROI = new OvalRoi((int)(0.5+x[nCount]-2*dSigma),(int)(0.5+y[nCount]-2*dSigma),(int)(4*dSigma),(int)(4*dSigma));
-					//if((int)(channel[nCount])==1)
-						spotROI.setStrokeColor(colorColoc);
-					//else
-						//spotROI.setStrokeColor(colorCh2);
+				if(cddlg.bTwoChannels)
+					dRadius = 2*dSigma[(int)(channel[nCount]-1)];
+				else
+					dRadius = 2*dSigma[0];
+									
+				spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
+				spotROI.setStrokeColor(colorColoc);
+				if(nStackSize_==1)
+					spotROI.setPosition(0);
+				else
 					spotROI.setPosition((int)absframe[nCount]);
-					SpotsPositions.add(spotROI);									
+				SpotsPositions.add(spotROI);									
 			}
 		}
 		else
@@ -293,7 +296,7 @@ public class Detect_Particles implements PlugIn {
 			{
 				for(nSlice=1; nSlice<=imageinfo[3]; nSlice++)
 				{
-					//filling up arrays with current detectiopns in both channels
+					//filling up arrays with current detections in both channels
 					spotsCh1.clear();
 					spotsCh2.clear();
 					for(nCount = 0; nCount<nPatNumber; nCount++)
@@ -345,11 +348,9 @@ public class Detect_Particles implements PlugIn {
 							colocalizations[(int) dIntermediate1[2]]=true;
 							for(j=1; j<3; j++)
 							{
-								spotROI = new OvalRoi((int)(0.5+dIntermediate2[0]-2*dSigma),(int)(0.5+dIntermediate2[1]-2*dSigma),(int)(4*dSigma),(int)(4*dSigma));
-							//if((int)(channel[nCount])==1)
+								dRadius = dSigma[0]+dSigma[1];
+								spotROI = new OvalRoi((int)(0.5+dIntermediate2[0]-dRadius),(int)(0.5+dIntermediate2[1]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
 								spotROI.setStrokeColor(colorColoc);
-							//else
-								//spotROI.setStrokeColor(colorCh2);
 								spotROI.setPosition(j,nSlice,nFrame);
 								SpotsPositions.add(spotROI);
 							}
@@ -366,11 +367,12 @@ public class Detect_Particles implements PlugIn {
 			//drawing the rest
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
-				if(!colocalizations[nCount] )
+				if(!colocalizations[nCount])
 				{
 					if( !cddlg.bPlotBothChannels)
 					{
-						spotROI = new OvalRoi((int)(0.5+x[nCount]-2*dSigma),(int)(0.5+y[nCount]-2*dSigma),(int)(4*dSigma),(int)(4*dSigma));
+						dRadius = 2*dSigma[(int) (channel[nCount]-1)];
+						spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
 						if((int)(channel[nCount])==1)
 							spotROI.setStrokeColor(colorCh1);
 						else
@@ -382,7 +384,8 @@ public class Detect_Particles implements PlugIn {
 					{
 						for (int k=1;k<3;k++)
 						{
-							spotROI = new OvalRoi((int)(0.5+x[nCount]-2*dSigma),(int)(0.5+y[nCount]-2*dSigma),(int)(4*dSigma),(int)(4*dSigma));
+							dRadius = 2*dSigma[(int) (channel[nCount]-1)];
+							spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
 							if((int)(channel[nCount])==1)
 								spotROI.setStrokeColor(colorCh1);
 							else

@@ -1,6 +1,7 @@
 package ComDet;
 
 import ij.IJ;
+import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
@@ -13,8 +14,6 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import ij.process.TypeConverter;
-import ij.text.TextWindow;
-
 import jaolho.data.lma.LMA;
 
 import java.util.ArrayList;
@@ -29,7 +28,8 @@ public class CDAnalysis {
 	ImageStatistics imgstat;
 	GaussianBlur lowpassGauss = new GaussianBlur(); //low pass prefiltering
 	Convolver      colvolveOp = new Convolver(); //convolution filter
-	float []		 fConKernel;  
+	float []		 fConKernel;
+	float []		 fConKernelTwo; //for the second channel  
 	int [] nParticlesCount;
 	int [][] colocstat;
 	//int nTrue;
@@ -59,22 +59,30 @@ public class CDAnalysis {
 	{
 		int nThreshold;
 		int [] nNoise;
+		int chIndex;
 		
 		FloatProcessor dupip = null ; //duplicate of image
 		ImageProcessor dushort; //duplicate of image
 		ImageProcessor duconvolved = null; //duplicate of image		
 		ByteProcessor dubyte = null; //tresholded image
 		TypeConverter tc; 
-
+		
+		if(fdg.bTwoChannels)
+			chIndex = nImagePos[0]-1;
+		else
+			chIndex = 0;
 		
 		dupip = (FloatProcessor) ip.duplicate().convertToFloat();
 		
 		//low-pass filtering		
-		SMLblur1Direction(dupip, fdg.dPSFsigma*0.5, 0.0002, true, (int)Math.ceil(5*fdg.dPSFsigma*0.5));
-		SMLblur1Direction(dupip, fdg.dPSFsigma*0.5, 0.0002, false, 0);
+		SMLblur1Direction(dupip, fdg.dPSFsigma[chIndex]*0.5, 0.0002, true, (int)Math.ceil(5*fdg.dPSFsigma[chIndex]*0.5));
+		SMLblur1Direction(dupip, fdg.dPSFsigma[chIndex]*0.5, 0.0002, false, 0);
 
 		//convolution with gaussian PSF kernel		
-		SMLconvolveFloat(dupip, fConKernel, fdg.nKernelSize, fdg.nKernelSize);
+		if((fdg.bTwoChannels) && nImagePos[0]==2)
+			SMLconvolveFloat(dupip, fConKernelTwo, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
+		else
+			SMLconvolveFloat(dupip, fConKernel, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
 		//new ImagePlus("convoluted", dupip.duplicate()).show();
 		tc = new TypeConverter(dupip, true);
 		dushort =  tc.convertToShort();
@@ -83,8 +91,8 @@ public class CDAnalysis {
 		//making a copy of convoluted image
 		duconvolved = dushort.duplicate();
 
-		nNoise  = getThreshold(dushort, fdg.nSensitivity);		
-		nThreshold = nNoise[0] +  fdg.nSensitivity*nNoise[1];
+		nNoise  = getThreshold(dushort, fdg.nSensitivity[chIndex]);		
+		nThreshold = nNoise[0] +  fdg.nSensitivity[chIndex]*nNoise[1];
 		//new ImagePlus("convoluted", dushort.duplicate()).show();
 		
 		
@@ -118,6 +126,7 @@ public class CDAnalysis {
 		int height = ipBinary.getHeight();
 		 
 		int nArea;
+		int chIndex;
 		
 		int i,j;
 				
@@ -137,10 +146,15 @@ public class CDAnalysis {
 		ArrayList<int[]> stackPost = new ArrayList<int[]>( );
 		int [][] label = new int[width][height] ;
 		
-		//OvalRoi spotROI;
+		
+		if(fdg.bTwoChannels)
+			chIndex = nImagePos[0]-1;
+		else
+			chIndex = 0;
+		
 		
 		int [] nMaxPos;
-		int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma);
+		int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
 		int nMaxInd, nMaxIntensity;
 		int nLocalThreshold;
 		int nListLength;
@@ -234,7 +248,7 @@ public class CDAnalysis {
 				} /* end while */
 				
 				//case of single particle in the thresholded area
-				if(!bBorder && nArea > fdg.nAreaCut && nArea < fdg.nAreaMax)				
+				if(!bBorder && nArea > fdg.nAreaCut[chIndex] && nArea < fdg.nAreaMax[chIndex])				
 				{					
 					xCentroid /= dInt;
 					yCentroid /= dInt;
@@ -276,7 +290,7 @@ public class CDAnalysis {
 				
 				}
 				////probably many particles in the thresholded area				
-				if(nArea >= fdg.nAreaMax)
+				if(nArea >= fdg.nAreaMax[chIndex])
 				{
 					
 					while ( !stackPost.isEmpty()) 
@@ -300,7 +314,7 @@ public class CDAnalysis {
 							//check whether it is above the threshold level
 							if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
 							{
-								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity);								
+								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);								
 								if(nLocalThreshold>nMaxIntensity)
 									bInRoi = false;
 							}
@@ -368,13 +382,15 @@ public class CDAnalysis {
 
 	// function calculating convolution kernel of 2D Gaussian shape
 	// with background subtraction for spots enhancement
-	public void initConvKernel(CDDialog fdg)
+	public void initConvKernel(CDDialog fdg, int nChannel)
 	{
+		
 		int i,j; //counters
 		int nBgPixCount; //number of kernel pixels for background subtraction 
 		float GaussSum; //sum of all integrated Gaussian function values inside 'spot circle'
 		float fSpot; // spot circle radius
 		float fSpotSqr; // spot circle radius squared
+		
 		
 		//intermediate values to speed up calculations
 		float fIntensity;
@@ -382,33 +398,36 @@ public class CDAnalysis {
 		float fDist;
 		float fPixVal;
 		float [][] fKernel;
+		float nCenter; // center coordinate of the convolution kernel
 		
-		float nCenter = (float) ((fdg.nKernelSize - 1.0)*0.5);; // center coordinate of the convolution kernel
+		nCenter = (float) ((fdg.nKernelSize[nChannel] - 1.0)*0.5); // center coordinate of the convolution kernel
 		
 		//kernel matrix
-		fKernel = new float [fdg.nKernelSize][fdg.nKernelSize];
+		fKernel = new float [fdg.nKernelSize[nChannel]][fdg.nKernelSize[nChannel]];
 		//kernel string 
-		fConKernel = new float [fdg.nKernelSize*fdg.nKernelSize];
-		
+		if(nChannel==0)
+			fConKernel = new float [fdg.nKernelSize[nChannel]*fdg.nKernelSize[nChannel]];
+		else 
+			fConKernelTwo = new float [fdg.nKernelSize[nChannel]*fdg.nKernelSize[nChannel]];
 		//Gaussian spot region
-		if (3*fdg.dPSFsigma > nCenter)
+		if (3*fdg.dPSFsigma[nChannel] > nCenter)
 			fSpot = nCenter;
 		else
-			fSpot = (float) (3.0*fdg.dPSFsigma);
+			fSpot = (float) (3.0*fdg.dPSFsigma[nChannel]);
 		
 		fSpotSqr = fSpot*fSpot;
 		
 		//intermediate values to speed up calculations
-		fIntensity = (float) (fdg.dPSFsigma*fdg.dPSFsigma*0.5*Math.PI);
-		fDivFactor = (float) (1.0/(Math.sqrt(2)*fdg.dPSFsigma));
+		fIntensity = (float) (fdg.dPSFsigma[nChannel]*fdg.dPSFsigma[nChannel]*0.5*Math.PI);
+		fDivFactor = (float) (1.0/(Math.sqrt(2)*fdg.dPSFsigma[nChannel]));
 		GaussSum = 0;
 		nBgPixCount = 0;
 		
 		//first run, filling array with gaussian function Approximation values (integrated over pixel)
 		//and calculating number of pixels which will serve as a background
-		for (i=0; i<fdg.nKernelSize; i++)
+		for (i=0; i<fdg.nKernelSize[nChannel]; i++)
 		{
-			for (j=0; j<fdg.nKernelSize; j++)
+			for (j=0; j<fdg.nKernelSize[nChannel]; j++)
 			{
 				fDist = (i-nCenter)*(i-nCenter) + (j-nCenter)*(j-nCenter);
 				
@@ -429,17 +448,23 @@ public class CDAnalysis {
 		fDivFactor = (float)(1.0/(double)nBgPixCount);
 		
 		//second run, normalization and background subtraction
-		for (i=0; i<fdg.nKernelSize; i++)
+		for (i=0; i<fdg.nKernelSize[nChannel]; i++)
 		{
-			for (j=0; j<fdg.nKernelSize; j++)
+			for (j=0; j<fdg.nKernelSize[nChannel]; j++)
 			{
 				fDist = (i-nCenter)*(i-nCenter) + (j-nCenter)*(j-nCenter);
 				//normalization
-				fConKernel[i+j*(fdg.nKernelSize)] = fKernel[i][j] / GaussSum;
+				if(nChannel==0)
+					fConKernel[i+j*(fdg.nKernelSize[nChannel])] = fKernel[i][j] / GaussSum;
+				else
+					fConKernelTwo[i+j*(fdg.nKernelSize[nChannel])] = fKernel[i][j] / GaussSum;
 				if (fDist > fSpotSqr)
 				{
 					//background subtraction
-					fConKernel[i+j*(fdg.nKernelSize)] -=fDivFactor;
+					if(nChannel==0)
+						fConKernel[i+j*(fdg.nKernelSize[nChannel])] -=fDivFactor;
+					else
+						fConKernelTwo[i+j*(fdg.nKernelSize[nChannel])] -=fDivFactor;
 				}
 				
 			}		
