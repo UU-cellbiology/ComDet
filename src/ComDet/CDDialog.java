@@ -47,7 +47,7 @@ public class CDDialog {
 		//String [] DetectOptions = new String [] {
 //				"1. Intensity maximum","2. Intensity shape"};
 		String [] sSensitivityOptions = new String [] {
-				"Very dim particles (SNR=3)", "Dim particles (SNR=4)" ,"Bright particles (SNR=5)","Brighter particles (SNR=10)", "Very bright particles (SNR=30)" };
+				"Very dim particles (SNR=3)", "Dim particles (SNR=4)" ,"Bright particles (SNR=5)","Brighter particles (SNR=10)", "Pretty bright particles (SNR=20)", "Very bright particles (SNR=30)" };
 		
 		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
 		fpDial.addMessage("Detection parameters:\n");
@@ -118,10 +118,8 @@ public class CDDialog {
 			}
 			else
 			{
-				if(nSensitivity[i] == 3)
-					nSensitivity[i]=10;
-				else
-					nSensitivity[i]=30;
+				nSensitivity[i] = (nSensitivity[i]-2)*10;
+
 			}
 		}
 		return true;
