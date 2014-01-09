@@ -3,7 +3,6 @@ package ComDet;
 
 import java.awt.Color;
 import java.awt.Frame;
-import java.awt.List;
 import java.util.ArrayList;
 
 import ComDet.CDAnalysis;
