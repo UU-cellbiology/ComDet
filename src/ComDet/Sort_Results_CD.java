@@ -59,9 +59,9 @@ public class Sort_Results_CD implements PlugIn {
 		int Sortindex;
 		
 		nTotalColumns = sml.ptable.getLastColumn()+1;
-		if (nTotalColumns == -1)
+		if (nTotalColumns == -1 || nTotalColumns == 0)
 		{
-			IJ.error("There is no Results table open. Sorry.");
+			IJ.error("There is no Results table open or it is empty. Sorry.");
 			return;						
 		}
 		SortColumn = new String [nTotalColumns];

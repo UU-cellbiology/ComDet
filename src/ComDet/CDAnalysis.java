@@ -2,6 +2,7 @@ package ComDet;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.Plot;
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
@@ -91,6 +92,7 @@ public class CDAnalysis {
 		//making a copy of convoluted image
 		duconvolved = dushort.duplicate();
 
+		//new ImagePlus("convoluted", dushort.duplicate()).show();
 		nNoise  = getThreshold(dushort, fdg.nSensitivity[chIndex]);		
 		nThreshold = nNoise[0] +  fdg.nSensitivity[chIndex]*nNoise[1];
 		//new ImagePlus("convoluted", dushort.duplicate()).show();
@@ -561,67 +563,85 @@ public class CDAnalysis {
 	int [] getThreshold(ImageProcessor thImage, int nSDgap)
 	{
 		ImageStatistics imgstat;
-		double  [][] dHistogram;
+
 		double  [][] dNoiseFit;
 		int nHistSize;
-		int nCount, nMaxCount;
+		int nMaxCount;
 		int nDownCount, nUpCount;
 		int i,nPeakPos; 
-		double dRightWidth, dLeftWidth, dWidth;
+		double dRightWidth, dLeftWidth;
+		double dWidth=0;
 		double dMean, dSD;
 		double [] dFitErrors;
 		double dErrCoeff;
 		LMA fitlma;
 		int [] results;
+		int nBinSizeEst = 500;
+		boolean bOptimal = false;
 		
-		
-		
-		//mean, sd, min, max
-		//imgstat = ImageStatistics.getStatistics(thImage, 38, null);
-		imgstat = ImageStatistics.getStatistics(thImage, Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
-		dMean = imgstat.mean;
-		nPeakPos = 0;
-		
-		nHistSize = imgstat.histogram.length;		
-		dHistogram = new double [2][nHistSize];
-		nMaxCount = 0;
+		//searching for the optimal for fitting intensity histogram's bin size
 	
-		//determine position and height of maximum count in histogram (mode)
-		//and height at maximum
-		for (i=0; i<nHistSize; i++)
+		thImage.setHistogramSize(nBinSizeEst);			
+		imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+		nHistSize = imgstat.histogram.length;											
+		nPeakPos = imgstat.mode;
+		nMaxCount = imgstat.maxCount;
+		
+		//Plot histplot = new Plot("Histogram","intensity", "count", dHistogram[0], dHistogram[1]);
+		//histplot.show();
+
+		while (!bOptimal)
 		{
-			
-			nCount=imgstat.histogram[i];
-			dHistogram[0][i]=imgstat.min + i*imgstat.binSize;			
-			dHistogram[1][i] = (double)nCount;
-			if(nMaxCount < nCount)
+			//estimating width of a peak
+			//going to the left
+			i = nPeakPos;
+			while (i>0 && imgstat.histogram[i]>0.5*nMaxCount)
 			{
-				nMaxCount= nCount;
-				dMean = imgstat.min + i*imgstat.binSize;
-				nPeakPos = i;
-			}			
+				i--;			
+			}
+			if(i<0)
+				i=0;
+			dLeftWidth = i;
+			//going to the right
+			i=nPeakPos;
+			while (i<nHistSize && imgstat.histogram[i]>0.5*nMaxCount)
+			{
+				i++;			
+			}
+			if(i==nHistSize)
+				i=nHistSize-1;
+			dRightWidth = i;
+			//FWHM in bins
+			dWidth = (dRightWidth-dLeftWidth);
+			//histogram is too narrow for fitting, increase number of bins
+			if(dWidth<12)
+			{
+				nBinSizeEst = nBinSizeEst + 100;
+				//bin set is too dense
+				if(nBinSizeEst> 65000)
+				{
+					bOptimal = true;
+				}
+				else
+				{
+					//recalculate parameters
+					thImage.setHistogramSize(nBinSizeEst);			
+					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+					nHistSize = imgstat.histogram.length;											
+					nPeakPos = imgstat.mode;
+					nMaxCount = imgstat.maxCount;
+					
+				}
+			}
+			//histogram is ok, proceed to fitting
+			else
+			{
+				bOptimal = true;				
+			}
 		}
-		//estimating width of a peak
-		//going to the left
-		i=nPeakPos;
-		while (i>0 && imgstat.histogram[i]>0.5*nMaxCount)
-		{
-			i--;			
-		}
-		if(i<0)
-			i=0;
-		dLeftWidth = i;
-		//going to the right
-		i=nPeakPos;
-		while (i<nHistSize && imgstat.histogram[i]>0.5*nMaxCount)
-		{
-			i++;			
-		}
-		if(i==nHistSize)
-			i=nHistSize-1;
-		dRightWidth = i;
-		//FWHM in bins
-		dWidth = (dRightWidth-dLeftWidth);
+
+					
+		dMean = imgstat.min + nPeakPos*imgstat.binSize;
 		dSD = dWidth*imgstat.binSize/2.35;
 		//fitting range +/- 3*SD
 		dLeftWidth = nPeakPos - 3*dWidth/2.35;
@@ -636,8 +656,8 @@ public class CDAnalysis {
 		dNoiseFit = new double [2][nUpCount-nDownCount+1];
 		for(i=nDownCount;i<=nUpCount;i++)
 		{
-			dNoiseFit[0][i-nDownCount] = dHistogram[0][i];
-			dNoiseFit[1][i-nDownCount] = dHistogram[1][i];
+			dNoiseFit[0][i-nDownCount] = imgstat.min + i*imgstat.binSize;
+			dNoiseFit[1][i-nDownCount] = (double)imgstat.histogram[i];
 		}
 		
 		fitlma = new LMA(new OneDGaussian(), new double[] {(double)nMaxCount, dMean, dSD}, dNoiseFit);
