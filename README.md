@@ -7,5 +7,5 @@ ComDet
 For description and manual refer to <a href="https://github.com/ekatrukha/ComDet/wiki"><strong>Wiki page</strong></a>.
 <br />
 <br />
-Developed in <a href='http://www.cellbiology.nl/'>Cell Biology group</a> of Utrecht University.  
-Write an e-mail <a href="mailto:y.katrukha@uu.nl">for any questions</a>.
+Developed in <a href='http://cellbiology.science.uu.nl/'>Cell Biology group</a> of Utrecht University.  
+<a href="mailto:katpyxa@gmail.com">E-mail</a> for any questions.
