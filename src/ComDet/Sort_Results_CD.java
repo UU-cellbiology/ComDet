@@ -117,6 +117,7 @@ public class Sort_Results_CD implements PlugIn {
 			for(j=0;j<len;j++)
 				sml.ptable.setValue(i, j, data[j][i]);		
 		//sml.showTable();
+		sml.ptable.show("Results");
 		
 	}
 	

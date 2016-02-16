@@ -87,7 +87,7 @@ public class CDAnalysis {
 		//new ImagePlus("convoluted", dupip.duplicate()).show();
 		tc = new TypeConverter(dupip, true);
 		dushort =  tc.convertToShort();
-		//new ImagePlus("iplowpass", iplowpass.duplicate()).show();				
+		//new ImagePlus("iplowpass", dushort.duplicate()).show();				
 			
 		//making a copy of convoluted image
 		duconvolved = dushort.duplicate();
@@ -156,9 +156,10 @@ public class CDAnalysis {
 		
 		
 		int [] nMaxPos;
-		int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
+		//int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
+		int RoiRad = (int) Math.ceil(4*fdg.dPSFsigma[chIndex]);
 		int nMaxInd, nMaxIntensity;
-		int nLocalThreshold;
+		double [] nLocalThreshold;
 		int nListLength;
 					
 		
@@ -294,7 +295,7 @@ public class CDAnalysis {
 				////probably many particles in the thresholded area				
 				if(nArea >= fdg.nAreaMax[chIndex])
 				{
-					
+
 					while ( !stackPost.isEmpty()) 
 					{
 						//find element with max intensity
@@ -316,8 +317,10 @@ public class CDAnalysis {
 							//check whether it is above the threshold level
 							if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
 							{
-								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);								
-								if(nLocalThreshold>nMaxIntensity)
+								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);
+								//double nTemp=(nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1];
+							
+								if((nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1]<fdg.nSensitivity[chIndex])
 									bInRoi = false;
 							}
 							else
@@ -509,13 +512,17 @@ public class CDAnalysis {
 		}
 		return maxindex;			
 	}
+	
+	
+
 
 	
-	int getLocalThreshold(ImageProcessor ip_, int x, int y, int nRad, double coeff)
+	double [] getLocalThreshold(ImageProcessor ip_, int x, int y, int nRad, double coeff)
 	{
 		double dIntNoise;
 		double dSD;
 		int i,j;
+		double [] ret = new double[2];
 		//double coeff;
 		
 		dIntNoise = 0;
@@ -552,8 +559,10 @@ public class CDAnalysis {
 		dSD = Math.sqrt(dSD/(8*nRad+7));
 		
 		//if()
-		
-		return (int)(dIntNoise + coeff*dSD) ;			
+		ret[0]=dIntNoise;
+		ret[1]=dSD;
+		return ret;
+		//return (int)(dIntNoise + coeff*dSD) ;			
 	}
 
 
@@ -568,7 +577,7 @@ public class CDAnalysis {
 		int nHistSize;
 		int nMaxCount;
 		int nDownCount, nUpCount;
-		int i,nPeakPos; 
+		int i,nPeakPos,k; 
 		double dRightWidth, dLeftWidth;
 		double dWidth=0;
 		double dMean, dSD;
@@ -576,8 +585,10 @@ public class CDAnalysis {
 		double dErrCoeff;
 		LMA fitlma;
 		int [] results;
-		int nBinSizeEst = 500;
+		int [] nHistgr;
+		int nBinSizeEst = 256;
 		boolean bOptimal = false;
+		int nPeakNew;
 		
 		//searching for the optimal for fitting intensity histogram's bin size
 	
@@ -586,6 +597,9 @@ public class CDAnalysis {
 		nHistSize = imgstat.histogram.length;											
 		nPeakPos = imgstat.mode;
 		nMaxCount = imgstat.maxCount;
+		nHistgr = new int [nHistSize];
+		for(k=0;k<nHistSize;k++)
+			nHistgr[k]=imgstat.histogram[k];
 		
 		//Plot histplot = new Plot("Histogram","intensity", "count", dHistogram[0], dHistogram[1]);
 		//histplot.show();
@@ -595,7 +609,7 @@ public class CDAnalysis {
 			//estimating width of a peak
 			//going to the left
 			i = nPeakPos;
-			while (i>0 && imgstat.histogram[i]>0.5*nMaxCount)
+			while (i>0 && nHistgr[i]>0.5*nMaxCount)
 			{
 				i--;			
 			}
@@ -604,7 +618,7 @@ public class CDAnalysis {
 			dLeftWidth = i;
 			//going to the right
 			i=nPeakPos;
-			while (i<nHistSize && imgstat.histogram[i]>0.5*nMaxCount)
+			while (i<nHistSize && nHistgr[i]>0.5*nMaxCount)
 			{
 				i++;			
 			}
@@ -620,6 +634,58 @@ public class CDAnalysis {
 				//bin set is too dense
 				if(nBinSizeEst> 65000)
 				{
+					//ok, seems there is one very high peak/bin, let's remove it					
+					nBinSizeEst = 256;
+					thImage.setHistogramSize(nBinSizeEst);	
+					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+					nHistSize = imgstat.histogram.length;											
+					nPeakPos = imgstat.mode;
+					//nMaxCount = imgstat.maxCount;
+					//remove peak value
+					nHistgr = new int [nHistSize-1];
+					nPeakNew=0; nMaxCount=0;
+					for(k=0;k<nPeakPos;k++)
+					{
+						nHistgr[k]=imgstat.histogram[k];
+						if(nHistgr[k]>nMaxCount)
+						{
+							nMaxCount = nHistgr[k];
+							nPeakNew = k;
+						}
+					}
+					for(k=nPeakPos+1;k<nHistSize;k++)
+					{
+						nHistgr[k-1]=imgstat.histogram[k];
+						if(nHistgr[k-1]>nMaxCount)
+						{
+							nMaxCount = nHistgr[k-1];
+							nPeakNew = k-1;
+						}
+					}
+					nPeakPos=nPeakNew;
+					nHistSize = nHistSize-1;
+					
+					//estimating width of a peak
+					//going to the left
+					i = nPeakPos;
+					while (i>0 && nHistgr[i]>0.5*nMaxCount)
+					{
+						i--;			
+					}
+					if(i<0)
+						i=0;
+					dLeftWidth = i;
+					//going to the right
+					i=nPeakPos;
+					while (i<nHistSize && nHistgr[i]>0.5*nMaxCount)
+					{
+						i++;			
+					}
+					if(i==nHistSize)
+						i=nHistSize-1;
+					dRightWidth = i;
+					//FWHM in bins
+					dWidth = (dRightWidth-dLeftWidth);
 					bOptimal = true;
 				}
 				else
@@ -630,7 +696,9 @@ public class CDAnalysis {
 					nHistSize = imgstat.histogram.length;											
 					nPeakPos = imgstat.mode;
 					nMaxCount = imgstat.maxCount;
-					
+					nHistgr = new int[nHistSize];
+					for(k=0;k<nHistSize;k++)
+						nHistgr[k]=imgstat.histogram[k];					
 				}
 			}
 			//histogram is ok, proceed to fitting
@@ -657,7 +725,7 @@ public class CDAnalysis {
 		for(i=nDownCount;i<=nUpCount;i++)
 		{
 			dNoiseFit[0][i-nDownCount] = imgstat.min + i*imgstat.binSize;
-			dNoiseFit[1][i-nDownCount] = (double)imgstat.histogram[i];
+			dNoiseFit[1][i-nDownCount] = (double)nHistgr[i];
 		}
 		
 		fitlma = new LMA(new OneDGaussian(), new double[] {(double)nMaxCount, dMean, dSD}, dNoiseFit);

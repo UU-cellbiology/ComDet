@@ -104,7 +104,7 @@ public class CDDialog {
 		}
 		for(i=0;i<TotCh;i++)
 		{
-			nAreaMax[i] = (int) (2.0*dPSFsigma[i]*dPSFsigma[i]);
+			nAreaMax[i] = (int) (3.0*dPSFsigma[i]*dPSFsigma[i]);
 			dPSFsigma[i] *= 0.5;
 			//putting limiting criteria on spot size
 			nAreaCut[i] = (int) (dPSFsigma[i] * dPSFsigma[i]);

@@ -3,6 +3,6 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/IJ"/>
-	<classpathentry kind="lib" path="/home/eugene/workspace/LMA/jama.jar"/>
+	<classpathentry kind="lib" path="/home/eugene/workspace/DoM_Utrecht/lib/jama.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
