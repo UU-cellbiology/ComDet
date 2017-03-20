@@ -6,21 +6,34 @@ import ij.gui.GenericDialog;
 
 public class CDDialog {
 
-	
-	int nWidth;  //image width of original image
-	int nHeight; //image height of original image
-	int nSlices; //number of slices
+	/**image width of original image**/
+	int nWidth;  
+	/**image height of original image**/
+	int nHeight; 
+	/**number of slices**/
+	int nSlices; 
 	
 	//finding particles
-	double [] dPSFsigma; //standard deviation of PSF approximated by Gaussian
-	int [] nKernelSize; //size of Gaussian kernel for particles enhancement 
-	//double dPixelSize; //size of pixel in nm of original image
-	int nThreads; //number of threads for calculation
-	int [] nAreaCut; //threshold of minimum particle area
-	int [] nAreaMax; //threshold of maximum particle area
-	int [] nSensitivity; //sensitivity of detection
+	/**standard deviation of PSF approximated by Gaussian**/
+	double [] dPSFsigma; 
+	/**size of Gaussian kernel for particles enhancement**/
+	int [] nKernelSize; 
+	/**number of threads for calculation**/
+	int nThreads; 
+	/**threshold of minimum particle area for each channel **/
+	int [] nAreaCut; 
+	/**threshold of maximum particle area for each channel **/
+	int [] nAreaMax; 
+	/**sensitivity of detection for each channel **/
+	int [] nSensitivity; 
 	
 	boolean bTwoChannels;
+	/** whether to include big particles in the detection**/
+	boolean bBigParticles;
+	/**0= detect particles independently in each channel
+	 * 1= detect particles in channel 1, quantify in channel 2
+	 * 2= detect particles in channel 2, quantify in channel 1**/
+	int nTwoChannelOption;
 
 	
 	//colocalization analysis parameters
@@ -44,24 +57,26 @@ public class CDDialog {
 		int i,TotCh;
 
 		GenericDialog fpDial = new GenericDialog("Detect Particles");
-		//String [] DetectOptions = new String [] {
-//				"1. Intensity maximum","2. Intensity shape"};
+		String [] TwoChannelOption = new String [] {
+				"Detect in both channels independently","Detect in channel 1, quantify channel 2","Detect in channel 2, quantify channel 1"};
 		String [] sSensitivityOptions = new String [] {
 				"Very dim particles (SNR=3)", "Dim particles (SNR=4)" ,"Bright particles (SNR=5)","Brighter particles (SNR=10)", "Pretty bright particles (SNR=20)", "Very bright particles (SNR=30)" };
 		
 		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
 		fpDial.addMessage("Detection parameters:\n");
+		fpDial.addCheckbox("Include larger particles?", Prefs.get("ComDet.bBigParticles", true));		
 		if(ChNumber == 2)
 		{
+			fpDial.addChoice("Two channel detection:", TwoChannelOption, Prefs.get("ComDet.TwoChannelOption", "Detect in both channels independently"));
 			fpDial.addMessage("Channel 1:\n");		
 		}
-			fpDial.addNumericField("Approximate particle size, pix", Prefs.get("ComDet.dPSFsigma", 4), 2);
-			fpDial.addChoice("Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Very dim particles (SNR=3)"));
+			fpDial.addNumericField("ch1a: Approximate particle size, pix", Prefs.get("ComDet.dPSFsigma", 4), 2);
+			fpDial.addChoice("ch1s: Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Very dim particles (SNR=3)"));
 		if(ChNumber == 2)
 		{
 				fpDial.addMessage("Channel 2:\n");
-				fpDial.addNumericField("Approximate particle size, pix", Prefs.get("ComDet.dPSFsigmaTwo", 4), 2);
-				fpDial.addChoice("Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.SensitivityTwo", "Very dim particles (SNR=3)"));
+				fpDial.addNumericField("ch2a: Approximate particle size, pix", Prefs.get("ComDet.dPSFsigmaTwo", 4), 2);
+				fpDial.addChoice("ch2s: Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.SensitivityTwo", "Very dim particles (SNR=3)"));
 
 				fpDial.addMessage("\n\n Colocalization analysis:\n");
 				fpDial.addCheckbox("Calculate colocalization? (requires image with two color channels)", Prefs.get("ComDet.bColocalization", false));
@@ -71,9 +86,13 @@ public class CDDialog {
 		fpDial.showDialog();
 		if (fpDial.wasCanceled())
             return false;
-		
-		//nDetectionMethod = fpDial.getNextChoiceIndex();
-		//Prefs.set("ComDet.DetectMethod", DetectOptions[nDetectionMethod]);
+		bBigParticles = fpDial.getNextBoolean();
+		Prefs.set("ComDet.bBigParticles", bBigParticles);
+		if(ChNumber == 2)
+		{
+			nTwoChannelOption = fpDial.getNextChoiceIndex();
+			Prefs.set("ComDet.TwoChannelOption", TwoChannelOption[nTwoChannelOption]);		
+		}
 		dPSFsigma[0] = fpDial.getNextNumber();
 		Prefs.set("ComDet.dPSFsigma", dPSFsigma[0]);
 		nSensitivity[0] = fpDial.getNextChoiceIndex();
@@ -104,10 +123,11 @@ public class CDDialog {
 		}
 		for(i=0;i<TotCh;i++)
 		{
-			nAreaMax[i] = (int) (3.0*dPSFsigma[i]*dPSFsigma[i]);
+			
 			dPSFsigma[i] *= 0.5;
+			nAreaMax[i] = (int) (12.0*dPSFsigma[i]*dPSFsigma[i]);
 			//putting limiting criteria on spot size
-			nAreaCut[i] = (int) (dPSFsigma[i] * dPSFsigma[i]);
+			nAreaCut[i] = (int) (4.0*dPSFsigma[i] * dPSFsigma[i]);
 			nKernelSize[i] = (int) Math.ceil(3.0*dPSFsigma[i]);
 			if(nKernelSize[i]%2 == 0)
 				 nKernelSize[i]++;

@@ -29,8 +29,11 @@ public class CDAnalysis {
 	ImageStatistics imgstat;
 	GaussianBlur lowpassGauss = new GaussianBlur(); //low pass prefiltering
 	Convolver      colvolveOp = new Convolver(); //convolution filter
+	/** convolution filter for first channel **/
 	float []		 fConKernel;
+	/** convolution filter for second channel **/
 	float []		 fConKernelTwo; //for the second channel  
+	/** array holding number of particles in each slice/frame **/
 	int [] nParticlesCount;
 	int [][] colocstat;
 	//int nTrue;
@@ -84,7 +87,10 @@ public class CDAnalysis {
 			SMLconvolveFloat(dupip, fConKernelTwo, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
 		else
 			SMLconvolveFloat(dupip, fConKernel, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
+		
+		
 		//new ImagePlus("convoluted", dupip.duplicate()).show();
+		
 		tc = new TypeConverter(dupip, true);
 		dushort =  tc.convertToShort();
 		//new ImagePlus("iplowpass", dushort.duplicate()).show();				
@@ -93,9 +99,10 @@ public class CDAnalysis {
 		duconvolved = dushort.duplicate();
 
 		//new ImagePlus("convoluted", dushort.duplicate()).show();
+		
+		
 		nNoise  = getThreshold(dushort, fdg.nSensitivity[chIndex]);		
 		nThreshold = nNoise[0] +  fdg.nSensitivity[chIndex]*nNoise[1];
-		//new ImagePlus("convoluted", dushort.duplicate()).show();
 		
 		
 		//thresholding
@@ -126,6 +133,8 @@ public class CDAnalysis {
 		//double dPSFsigma = fdg.dPSFsigma;
 		int width = ipBinary.getWidth();
 		int height = ipBinary.getHeight();
+		
+		boolean bBigParticles=fdg.bBigParticles;
 		 
 		int nArea;
 		int chIndex;
@@ -143,6 +152,7 @@ public class CDAnalysis {
 		int nPatCount = 0;
 		int lab = 1;
 		int [] pos;
+		int xMin,xMax,yMin,yMax;
 		
 		Stack<int[]> sstack = new Stack<int[]>( );
 		ArrayList<int[]> stackPost = new ArrayList<int[]>( );
@@ -157,7 +167,7 @@ public class CDAnalysis {
 		
 		int [] nMaxPos;
 		//int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
-		int RoiRad = (int) Math.ceil(4*fdg.dPSFsigma[chIndex]);
+		int RoiRad = (int) Math.ceil(3*fdg.dPSFsigma[chIndex]);
 		int nMaxInd, nMaxIntensity;
 		double [] nLocalThreshold;
 		int nListLength;
@@ -181,6 +191,10 @@ public class CDAnalysis {
 				//xMax = 0; yMax = 0;
 				dInt = 0;
 				bBorder = false;
+				yMin=height+1;
+				xMin=width+1;
+				yMax=-100;
+				xMax=-100;
 
 				/* start the float fill */
 				while ( !sstack.isEmpty()) 
@@ -198,8 +212,14 @@ public class CDAnalysis {
 					dInt += dVal;
 					xCentroid += dVal*i;
 					yCentroid += dVal*j;
-					
-					
+					if(i>xMax)
+						xMax=i;
+					if(j>yMax)
+						yMax=j;					
+					if(i<xMin)
+						xMin=i;					
+					if(j<yMin)
+						yMin=j;
 					
 					if (ipBinary.getPixel(i-1,j-1) > 0 && label[i-1][j-1] == 0) {
 						sstack.push( new int[] {i-1,j-1} );
@@ -250,9 +270,19 @@ public class CDAnalysis {
 					
 				} /* end while */
 				
+				//extra border check
+				xMin=xMin-1;
+				yMin=yMin-1;
+				xMax=xMax+1;
+				yMax=yMax+1;
+				if(xMin<=0 || yMin<=0 || xMax>=(width-1) || yMax>=(height-1))
+					bBorder = true;
+				
 				//case of single particle in the thresholded area
 				if(!bBorder && nArea > fdg.nAreaCut[chIndex] && nArea < fdg.nAreaMax[chIndex])				
-				{					
+				{
+					
+					
 					xCentroid /= dInt;
 					yCentroid /= dInt;
 
@@ -267,7 +297,7 @@ public class CDAnalysis {
 							 if(bInRoi)
 							 {
 						
-							
+								 dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
 									ptable_lock.lock();
 									ptable.incrementCounter();									
 									ptable.addValue("Abs_frame", nFrame+1);
@@ -276,8 +306,13 @@ public class CDAnalysis {
 									//ptable.addValue("Frame_Number", nFrame+1);
 									ptable.addValue("Channel", nImagePos[0]);
 									ptable.addValue("Slice", nImagePos[1]);
-									ptable.addValue("Frame", nImagePos[2]);									
-									//ptable.addValue("NArea", nArea);
+									ptable.addValue("Frame", nImagePos[2]);
+									ptable.addValue("xMin", xMin);
+									ptable.addValue("yMin", yMin);
+									ptable.addValue("xMax", xMax);
+									ptable.addValue("yMax", yMax);
+									ptable.addValue("NArea", nArea);
+									ptable.addValue("IntegratedInt", dIMax);
 									
 									ptable_lock.unlock();
 									//adding spot to the overlay
@@ -293,84 +328,137 @@ public class CDAnalysis {
 				
 				}
 				////probably many particles in the thresholded area				
-				if(nArea >= fdg.nAreaMax[chIndex])
+				if(nArea >= fdg.nAreaMax[chIndex] && !bBorder)
 				{
-
-					while ( !stackPost.isEmpty()) 
+					if(bBigParticles)
 					{
-						//find element with max intensity
-						nMaxInd = getIndexofMaxIntensity(stackPost);
-						nMaxPos = stackPost.get(nMaxInd);
-						xCentroid = nMaxPos[0];
-						yCentroid = nMaxPos[1];
-						nMaxIntensity = nMaxPos[2]; 
-						//check whether it is inside ROI
-						bInRoi = true;
-						if(RoiAct!=null)
-						{
-							if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
-								bInRoi=false;
-						}
-						//yes, inside
-						if(bInRoi)
-						{
-							//check whether it is above the threshold level
-							if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
+						
+						
+						xCentroid /= dInt;
+						yCentroid /= dInt;
+
+							if ( (xCentroid>0) && (yCentroid>0) && (xCentroid<(width-1)) && (yCentroid<(height-1)) )
 							{
-								nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);
-								//double nTemp=(nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1];
-							
-								if((nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1]<fdg.nSensitivity[chIndex])
-									bInRoi = false;
+								 bInRoi = true;
+								 if(RoiAct!=null)
+								 {
+									 if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
+										 bInRoi=false;
+								 }
+								 if(bInRoi)
+								 {						
+									 dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
+									ptable_lock.lock();
+									ptable.incrementCounter();									
+									ptable.addValue("Abs_frame", nFrame+1);
+									ptable.addValue("X_(px)",xCentroid);	
+									ptable.addValue("Y_(px)",yCentroid);
+									//ptable.addValue("Frame_Number", nFrame+1);
+									ptable.addValue("Channel", nImagePos[0]);
+									ptable.addValue("Slice", nImagePos[1]);
+									ptable.addValue("Frame", nImagePos[2]);		
+									ptable.addValue("xMin", xMin);
+									ptable.addValue("yMin", yMin);
+									ptable.addValue("xMax", xMax);
+									ptable.addValue("yMax", yMax);
+									ptable.addValue("NArea", nArea);
+									ptable.addValue("IntegratedInt", dIMax);
+									ptable_lock.unlock();
+									nPatCount++;
+								 }
 							}
-							else
-								bInRoi = false;
-							//all checks passed
+							
+					
+					}//if(bBigParticles)
+					else
+					{
+						while ( !stackPost.isEmpty()) 
+						{
+							//find element with max intensity
+							nMaxInd = getIndexofMaxIntensity(stackPost);
+							nMaxPos = stackPost.get(nMaxInd);
+							xCentroid = nMaxPos[0];
+							yCentroid = nMaxPos[1];
+							nMaxIntensity = nMaxPos[2]; 
+							//check whether it is inside ROI
+							bInRoi = true;
+							if(RoiAct!=null)
+							{
+								if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
+									bInRoi=false;
+							}
+							//yes, inside
 							if(bInRoi)
 							{
-								ptable_lock.lock();
-								ptable.incrementCounter();
-								ptable.addValue("Abs_frame", nFrame+1);
-								ptable.addValue("X_(px)",xCentroid);	
-								ptable.addValue("Y_(px)",yCentroid);
-								//ptable.addValue("Frame_Number", nFrame+1);
-								//ptable.addValue("NArea", nArea);
-								ptable.addValue("Channel", nImagePos[0]);
-								ptable.addValue("Slice", nImagePos[1]);
-								ptable.addValue("Frame", nImagePos[2]);
-								//ptable.addValue("Abs_count", nFrame+1);
+								//check whether it is above the threshold level
+								if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
+								{
+									nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);
+									//double nTemp=(nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1];
 								
-								ptable_lock.unlock();
-								//adding spot to the overlay
-								/*spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
-								spotROI.setStrokeColor(Color.yellow);	
-								spotROI.setPosition(nFrame+1);
-								SpotsPositions__.add(spotROI);*/
-								nPatCount++;				
+									if((nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1]<fdg.nSensitivity[chIndex])
+										bInRoi = false;
+								}
+								else
+									bInRoi = false;
+								//all checks passed
+								if(bInRoi)
+								{
+									xMin=(int)xCentroid-RoiRad-1;
+									yMin=(int)yCentroid-RoiRad-1;
+									xMax=(int)xCentroid+RoiRad+1;
+									yMax=(int)yCentroid+RoiRad+1;
+									dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
+									ptable_lock.lock();
+									ptable.incrementCounter();
+									ptable.addValue("Abs_frame", nFrame+1);
+									ptable.addValue("X_(px)",xCentroid);	
+									ptable.addValue("Y_(px)",yCentroid);
+									//ptable.addValue("Frame_Number", nFrame+1);
+									//ptable.addValue("NArea", nArea);
+									ptable.addValue("Channel", nImagePos[0]);
+									ptable.addValue("Slice", nImagePos[1]);
+									ptable.addValue("Frame", nImagePos[2]);
+									ptable.addValue("xMin", xMin);
+									ptable.addValue("yMin", yMin);
+									ptable.addValue("xMax", xMax);
+									ptable.addValue("yMax", yMax);
+									ptable.addValue("NArea", RoiRad*RoiRad);
+									ptable.addValue("IntegratedInt", dIMax);
+									//ptable.addValue("Abs_count", nFrame+1);
+									
+									ptable_lock.unlock();
+									//adding spot to the overlay
+									/*spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
+									spotROI.setStrokeColor(Color.yellow);	
+									spotROI.setPosition(nFrame+1);
+									SpotsPositions__.add(spotROI);*/
+									nPatCount++;				
+								}
+	
+								
 							}
-
-							
-						}
-						//remove maximum and its surrounding from the list
-						nListLength = stackPost.size();
-						i=0;
-						while(nListLength>0 && i<nListLength)
-						{
-							nMaxPos =stackPost.get(i);
-							if(nMaxPos[0]>=xCentroid-RoiRad && nMaxPos[0]<=xCentroid+RoiRad && nMaxPos[1]>=yCentroid-RoiRad && nMaxPos[1]<=yCentroid+RoiRad)
+							//remove maximum and its surrounding from the list
+							nListLength = stackPost.size();
+							i=0;
+							while(nListLength>0 && i<nListLength)
 							{
-								stackPost.remove(i);
-								nListLength--;
-							}
-							else
-							{
-								i++;
+								nMaxPos =stackPost.get(i);
+								if(nMaxPos[0]>=xCentroid-RoiRad && nMaxPos[0]<=xCentroid+RoiRad && nMaxPos[1]>=yCentroid-RoiRad && nMaxPos[1]<=yCentroid+RoiRad)
+								{
+									stackPost.remove(i);
+									nListLength--;
+								}
+								else
+								{
+									i++;
+								}
+								
 							}
 							
-						}
 						
-					
-					}//while ( !stackPost.isEmpty())
+						}//while ( !stackPost.isEmpty())
+					}//if(bBigParticles)
 				
 				}
 				
@@ -383,10 +471,50 @@ public class CDAnalysis {
 		
 	}
 	
+	/** function calculating integrated intensity and noise around spot
+	 * 
+	 
+	 */
+	public static double getIntIntNoise(ImageProcessor ipRaw, int xMin, int xMax, int yMin, int yMax)
+	{
+		double dNoise;
+		int nNoisePix, nIntIntPix, i,j;
+		double dIntInt;
+		
+		nNoisePix = 0;
+		dNoise = 0;
+		for (i=xMin;i<=xMax;i++)
+		{
+			nNoisePix+=2;
+			dNoise +=ipRaw.getPixel(i,yMin) +ipRaw.getPixel(i,yMax);
+		}
+		for (j=(yMin+1);j<=(yMax-1);j++)
+		{
+			nNoisePix+=2;
+			dNoise +=ipRaw.getPixel(xMin,j) +ipRaw.getPixel(xMax,j);
+		}
+		dNoise =dNoise /nNoisePix;
+		dIntInt = 0;
+		nIntIntPix =0;
+		
+		for(i=xMin;i<=xMax;i++)
+			for(j=yMin;j<=yMax;j++)
+			{
+				nIntIntPix ++;
+				dIntInt += ipRaw.getPixel(i,j);
+				
+			}
+		dIntInt = dIntInt - dNoise*nIntIntPix;
+		return dIntInt; 
+		
+	}
 
-
-	// function calculating convolution kernel of 2D Gaussian shape
-	// with background subtraction for spots enhancement
+	/** function calculating convolution kernel of 2D Gaussian shape
+	 * with background subtraction for spots enhancement
+	 * 
+	 * @param fdg
+	 * @param nChannel
+	 */
 	public void initConvKernel(CDDialog fdg, int nChannel)
 	{
 		
@@ -632,7 +760,7 @@ public class CDAnalysis {
 			{
 				nBinSizeEst = nBinSizeEst + 100;
 				//bin set is too dense
-				if(nBinSizeEst> 65000)
+				if(nBinSizeEst> 1000)
 				{
 					//ok, seems there is one very high peak/bin, let's remove it					
 					nBinSizeEst = 256;
