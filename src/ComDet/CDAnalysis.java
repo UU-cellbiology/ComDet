@@ -110,10 +110,14 @@ public class CDAnalysis {
 		//convert to byte
 		dubyte  = (ByteProcessor) dushort.convertToByte(false);
 		
-		dubyte.dilate();		
-		
-		dubyte.erode();
-		
+		//new ImagePlus("thresholded", dubyte.duplicate()).show();
+		//if(fdg.nKernelSize[chIndex]>3)
+		//{
+			dubyte.dilate();		
+			
+			dubyte.erode();
+		//}
+		//new ImagePlus("eroded", dubyte.duplicate()).show();
 		//new ImagePlus("byte", dubyte.duplicate()).show();
 			
 		//labelParticles(dubyte, ip, fdg, nFrame, SpotsPositions_, RoiActive_,nNoise[1]);

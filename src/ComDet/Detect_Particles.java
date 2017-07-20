@@ -605,7 +605,7 @@ public class Detect_Particles implements PlugIn {
 					cd.ptable.incrementCounter();
 					temp1 = spotsChRef.get(i);
 					temp2 = spotsChFol.get(i);
-					for(j=0;j<11;j++)
+					for(j=0;j<12;j++)
 					{
 						cd.ptable.addValue(ColTitles[j],temp1[j]);
 					}
@@ -614,7 +614,7 @@ public class Detect_Particles implements PlugIn {
 					
 					cd.ptable.incrementCounter();
 					
-					for(j=0;j<11;j++)
+					for(j=0;j<12;j++)
 					{
 						cd.ptable.addValue(ColTitles[j],temp2[j]);
 					}
