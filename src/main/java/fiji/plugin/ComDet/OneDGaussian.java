@@ -1,4 +1,4 @@
-package ComDet;
+package fiji.plugin.ComDet;
 
 import jaolho.data.lma.LMAFunction;
 

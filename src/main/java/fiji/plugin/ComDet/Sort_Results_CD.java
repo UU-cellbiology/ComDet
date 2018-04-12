@@ -1,4 +1,4 @@
-package ComDet;
+package fiji.plugin.ComDet;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -47,7 +47,9 @@ public class Sort_Results_CD implements PlugIn {
 	public void run(String arg) {
 		
 		int i;
+		int nCount;
 		int nTotalColumns;
+		int nTotalColumnsInclHidden;
 		boolean bOrder;
 		//asking user for sorting criteria
 		GenericDialog dgSortParticles = new GenericDialog("Sort Particles");
@@ -57,18 +59,30 @@ public class Sort_Results_CD implements PlugIn {
 		String [] SortOrder = new String [] {
 				"Ascending","Descending"};
 		int Sortindex;
+		nTotalColumnsInclHidden=sml.ptable.getLastColumn()+1;
+		nTotalColumns = 0; //sml.ptable.getLastColumn()+1;
 		
-		nTotalColumns = sml.ptable.getLastColumn()+1;
-		if (nTotalColumns == -1 || nTotalColumns == 0)
+		for(i=0;i<nTotalColumnsInclHidden;i++)
 		{
-			IJ.error("There is no Results table open or it is empty. Sorry.");
+			if(sml.ptable.columnExists(i))
+				nTotalColumns++;
+			
+		}
+		if (nTotalColumnsInclHidden <=0 )
+		{
+			IJ.error("There is no Results table open. Sorry.");
 			return;						
 		}
 		SortColumn = new String [nTotalColumns];
+		nCount=0;
 		//filling
-		for(i=0;i<nTotalColumns;i++)
+		for(i=0;i<nTotalColumnsInclHidden;i++)
 		{
-			SortColumn[i] = sml.ptable.getColumnHeading(i);
+			if(sml.ptable.columnExists(i))
+			{
+				SortColumn[nCount] = sml.ptable.getColumnHeading(i);
+				nCount++;
+			}
 		}
 		
 		dgSortParticles.addChoice("Sort by column:", SortColumn, Prefs.get("SiMoLoc.SortColumn", SortColumn[0]));
@@ -92,30 +106,49 @@ public class Sort_Results_CD implements PlugIn {
 	
 	public void sorting(int nSortingColumn, boolean ascending) 
 	{
-		int colNumber;
+		int colNumber,nTotalColumnsInclHidden;
 		int len;
 		int i,j;
 		
-		colNumber = sml.ptable.getLastColumn()+1;
+		nTotalColumnsInclHidden = sml.ptable.getLastColumn()+1;
+		colNumber=0;
+		for(i=0;i<nTotalColumnsInclHidden;i++)
+		{
+			if(sml.ptable.columnExists(i))
+				colNumber++;
+			
+		}
 
 		double [] s = sml.ptable.getColumnAsDoubles(0);
 		len = s.length;
 		double [][] data = new double[len][colNumber];
 		
 		IJ.showStatus("Sorting Results Table: Preparation...");
-		for (i=0; i<colNumber;i++)
+		colNumber=0;
+		for (i=0; i<nTotalColumnsInclHidden;i++)
 		{
-			s = sml.ptable.getColumnAsDoubles(i);
-			for(j=0; j<len;j++)
-			data[j][i]= s[j];
+			if(sml.ptable.columnExists(i))
+			{
+				
+				s = sml.ptable.getColumnAsDoubles(i);
+				for(j=0; j<len;j++)
+					data[j][colNumber]= s[j];
+				colNumber++;
+			}
 		}
 		IJ.showStatus("Sorting Results Table: Sorting...");
 		Arrays.sort(data, new tableComparator(nSortingColumn, ascending));
 		
 		IJ.showStatus("Sorting Results Table: Updating Table..."); 		
-		for (i=0;i<colNumber;i++)
-			for(j=0;j<len;j++)
-				sml.ptable.setValue(i, j, data[j][i]);		
+		colNumber=0;
+		
+		for (i=0;i<nTotalColumnsInclHidden;i++)
+			if(sml.ptable.columnExists(i))
+			{
+				for(j=0;j<len;j++)
+					sml.ptable.setValue(i, j, data[j][colNumber]);
+				colNumber++;
+			}	
 		//sml.showTable();
 		sml.ptable.show("Results");
 		

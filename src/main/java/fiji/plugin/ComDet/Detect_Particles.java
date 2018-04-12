@@ -1,12 +1,12 @@
-package ComDet;
+package fiji.plugin.ComDet;
 
 
 import java.awt.Color;
 import java.awt.Frame;
 import java.util.ArrayList;
 
-import ComDet.CDAnalysis;
-import ComDet.CDDialog;
+import fiji.plugin.ComDet.CDAnalysis;
+import fiji.plugin.ComDet.CDDialog;
 import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
@@ -14,6 +14,7 @@ import ij.WindowManager;
 import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.plugin.PlugIn;
+import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 import ij.text.TextWindow;
 
@@ -21,11 +22,13 @@ public class Detect_Particles implements PlugIn {
 	
 
 	ImagePlus imp;
+	boolean bIsHyperStack;
+	int nStackSize;
 	CompositeImage twochannels_imp;
 	ImageProcessor ip;
 	Overlay SpotsPositions;
 	Roi RoiActive;
-
+	RoiManager roi_manager;
 	int [] imageinfo;
 	
 	int [] nCurrPos;
@@ -47,7 +50,7 @@ public class Detect_Particles implements PlugIn {
 		int nFreeThread = -1;
 		int nSlice = 0;
 		boolean bContinue = true;
-		int nStackSize;
+		//int nStackSize;
 		
 		IJ.register(Detect_Particles.class);
 		
@@ -100,6 +103,7 @@ public class Detect_Particles implements PlugIn {
 		}
 		
 		nStackSize = imp.getStackSize();
+		imp.isHyperStack();
 		
 		//generating convolution kernel with size of PSF
 		if(cddlg.bTwoChannels)
@@ -205,10 +209,18 @@ public class Detect_Particles implements PlugIn {
 		{
 			Sort_Results_CD.sorting_external_silent(cd, 5, true);
 			
+			//in case we need to add ROIs to ROI Manager
+			if(cddlg.nRoiManagerAdd>0)
+			{
+				roi_manager = RoiManager.getInstance();
+			    if(roi_manager == null) 
+			    	roi_manager = new RoiManager();
+			    roi_manager.reset();
+			}
 			if(cddlg.nTwoChannelOption>0)			
 				{addParticlesToOverlayandQuantify();}
 			else
-				{addParticlesToOverlay(nStackSize);}
+				{addParticlesToOverlay();}
 			
 			imp.setOverlay(SpotsPositions);
 			imp.updateAndRepaintWindow();
@@ -218,19 +230,22 @@ public class Detect_Particles implements PlugIn {
 				{cd.ptable.show("Results");}
 			else
 				{showTable();}
-			
+			if(cddlg.nRoiManagerAdd>0)
+			{
+				roi_manager.setVisible(true);
+				roi_manager.toFront();
+			}
 		}
 
 	} 
-	/**analyzing colocalization between particles 
+	/** analyzing colocalization between particles 
 	 * and adding them to overlay in case of single or simultaneous detection **/	
-	void addParticlesToOverlay(int nStackSize_)
+	void addParticlesToOverlay()
 	{
 		int nCount;
 		int nPatNumber;
-		double dRadius;
 		Roi spotROI;
-		double [] dSigma = cddlg.dPSFsigma;
+		
 		double [] absframe;
 		double [] x;
 		double [] y;
@@ -244,6 +259,7 @@ public class Detect_Particles implements PlugIn {
 		double [] slices;
 		boolean [] colocalizations;
 		double [] colocIntRatio;
+		
 
 		//coordinates
 		x   = cd.ptable.getColumnAsDoubles(1);		
@@ -268,23 +284,30 @@ public class Detect_Particles implements PlugIn {
 		
 		if(!cddlg.bColocalization)
 		{
+			
+
+			
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
-				
-				if(cddlg.bTwoChannels)
-					dRadius = 2*dSigma[(int)(channel[nCount]-1)];
-				else
-					dRadius = 2*dSigma[0];
-									
-				//spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
 				spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
-				//spotROI = new OvalRoi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
 				spotROI.setStrokeColor(colorColoc);
-				if(nStackSize_==1)
+				if(nStackSize==1)
 					spotROI.setPosition(0);
 				else
-					spotROI.setPosition((int)absframe[nCount]);
-				SpotsPositions.add(spotROI);									
+				{
+					if(bIsHyperStack|| (imageinfo[2]>1))
+					{
+						spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+					}
+					else
+						spotROI.setPosition((int)absframe[nCount]);
+				}
+				spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
+				SpotsPositions.add(spotROI);	
+				if(cddlg.nRoiManagerAdd>0)
+					roi_manager.addRoi(spotROI);
+				
 			}
 		}
 		else
@@ -299,6 +322,20 @@ public class Detect_Particles implements PlugIn {
 			double dDistanceCand;
 			int nCandidate;
 			//boolean bOverlap;
+			/** particle (detection) number in Results Table
+			 * **/
+			double [] nPatN;
+			/**array containing indexes of detections of colocalization
+			 * **/
+			double [] nColocFriend;
+			/**array marking if colocalization ROI was added to ROI manager
+			 * **/
+			boolean [] nColocROIadded;
+			
+			/** Array containing ROIs of colocolized particles
+			 * **/
+			double [][] dColocRoiXYArray;
+			
 			double [] dIntermediate1;
 			double [] dIntermediate2;
 			//double [][] spotsArr2;			
@@ -312,7 +349,19 @@ public class Detect_Particles implements PlugIn {
 			
 			colocalizations = new boolean [nPatNumber];
 			colocIntRatio = new double[nPatNumber];
+			nColocFriend = new double[nPatNumber];
+			nColocROIadded =new boolean[nPatNumber] ;
+			dColocRoiXYArray = new double [nPatNumber][4];
+			
+			nPatN = new double[nPatNumber];
 			cd.colocstat = new int [imageinfo[3]][imageinfo[4]];
+			
+			for(nCount = 0; nCount<nPatNumber; nCount++)
+			{
+				nPatN[nCount]=nCount+1;
+				nColocROIadded[nCount]=false;
+			}
+			
 			//filling up arrays with current frame
 			for(nFrame=1; nFrame<=imageinfo[4]; nFrame++)
 			{
@@ -326,9 +375,9 @@ public class Detect_Particles implements PlugIn {
 						if(frames[nCount]==nFrame && slices[nCount]==nSlice)
 						{
 							if(channel[nCount]==1)
-								spotsCh1.add(new double [] {x[nCount],y[nCount], nCount, 0, xmin[nCount],xmax[nCount],ymin[nCount],ymax[nCount], dInt[nCount]});
+								spotsCh1.add(new double [] {x[nCount],y[nCount], nCount, 0, xmin[nCount],xmax[nCount],ymin[nCount],ymax[nCount], dInt[nCount],nPatN[nCount]});
 							else
-								spotsCh2.add(new double [] {x[nCount],y[nCount], nCount, 0, xmin[nCount],xmax[nCount],ymin[nCount],ymax[nCount], dInt[nCount]});
+								spotsCh2.add(new double [] {x[nCount],y[nCount], nCount, 0, xmin[nCount],xmax[nCount],ymin[nCount],ymax[nCount], dInt[nCount],nPatN[nCount]});
 						}
 					}
 					nColocCount = 0;
@@ -357,7 +406,7 @@ public class Detect_Particles implements PlugIn {
 								
 							}
 						
-						}//for(j=0;j<spotsCh2.size();j++)
+						}
 						//found colocalization
 						if(nCandidate>=0)
 						{
@@ -374,13 +423,35 @@ public class Detect_Particles implements PlugIn {
 							double xmaxav=0.5*(dIntermediate1[5]+dIntermediate2[5]);
 							double yminav=0.5*(dIntermediate1[6]+dIntermediate2[6]);
 							double ymaxav=0.5*(dIntermediate1[7]+dIntermediate2[7]);
+							//store detection indexes
+							nColocFriend[(int)dIntermediate1[9]-1]=dIntermediate2[9];
+							nColocFriend[(int)dIntermediate2[9]-1]=dIntermediate1[9];
+							//store ROI coordinates to add to ROI manager later
+							dColocRoiXYArray[(int)dIntermediate2[9]-1][0]=xminav;
+							dColocRoiXYArray[(int)dIntermediate2[9]-1][1]=yminav;
+							dColocRoiXYArray[(int)dIntermediate2[9]-1][2]=xmaxav-xminav;
+							dColocRoiXYArray[(int)dIntermediate2[9]-1][3]=ymaxav-yminav;
 							for(j=1; j<3; j++)
 							{
-								dRadius = dSigma[0]+dSigma[1];
+							
 								spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
-								//spotROI = new OvalRoi((int)(0.5+dIntermediate2[0]-dRadius),(int)(0.5+dIntermediate2[1]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
+								
 								spotROI.setStrokeColor(colorColoc);
 								spotROI.setPosition(j,nSlice,nFrame);
+								
+								if(cddlg.nRoiManagerAdd>0)
+								{
+									//adding just one here, since ROI Manager checks for duplication
+									if(j==1)
+									{
+										spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", (int)dIntermediate1[9],j,nSlice,nFrame));
+																
+										
+										imp.setPosition(j,nSlice,nFrame);
+										roi_manager.addRoi(spotROI);
+										nColocROIadded[(int)dIntermediate1[9]-1]=true;
+									}
+								}
 								SpotsPositions.add(spotROI);
 							}
 							nColocCount++;
@@ -400,29 +471,42 @@ public class Detect_Particles implements PlugIn {
 				{
 					if( !cddlg.bPlotBothChannels)
 					{
-						dRadius = 2*dSigma[(int) (channel[nCount]-1)];
+						
 						spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
-						//spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
 						if((int)(channel[nCount])==1)
 							spotROI.setStrokeColor(colorCh1);
 						else
 							spotROI.setStrokeColor(colorCh2);
+						spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c0", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
+						SpotsPositions.add(spotROI);
 						spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
 						SpotsPositions.add(spotROI);
+						if(cddlg.nRoiManagerAdd==1)
+						{
+							imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+							roi_manager.addRoi(spotROI);
+						}
 					}
 					else
 					{
 						for (int k=1;k<3;k++)
 						{
-							dRadius = 2*dSigma[(int) (channel[nCount]-1)];
+
 							spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
-							//spotROI = new OvalRoi((int)(0.5+x[nCount]-dRadius),(int)(0.5+y[nCount]-dRadius),(int)(2*dRadius),(int)(2*dRadius));
+							
 							if((int)(channel[nCount])==1)
 								spotROI.setStrokeColor(colorCh1);
 							else
 								spotROI.setStrokeColor(colorCh2);
+							spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c0_%d", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount],k));
 							spotROI.setPosition(k,(int)slices[nCount],(int)frames[nCount]);
 							SpotsPositions.add(spotROI);
+							if(cddlg.nRoiManagerAdd==1 && k==channel[nCount])
+							{
+								imp.setPosition(k,(int)slices[nCount],(int)frames[nCount]);
+								roi_manager.addRoi(spotROI);
+							}
+
 						}
 						
 					}
@@ -435,11 +519,23 @@ public class Detect_Particles implements PlugIn {
 				{
 					cd.ptable.setValue("Colocalized", nCount,1);
 					cd.ptable.setValue("IntensityRatio", nCount,colocIntRatio[nCount]);
+					cd.ptable.setValue("ColocIndex", nCount,nColocFriend[nCount]);
+					//check if we already added ROI to ROI manager
+					if(!nColocROIadded[nCount] && cddlg.nRoiManagerAdd>0)
+					{
+						spotROI = new Roi(dColocRoiXYArray[nCount][0],dColocRoiXYArray[nCount][1],dColocRoiXYArray[nCount][2],dColocRoiXYArray[nCount][3]);
+						spotROI.setStrokeColor(colorColoc);
+						spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+						spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
+						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+						roi_manager.addRoi(spotROI);
+					}
 				}
 				else
 				{
 					cd.ptable.setValue("Colocalized", nCount,0);
 					cd.ptable.setValue("IntensityRatio", nCount,0);
+					cd.ptable.setValue("ColocIndex", nCount,0);
 				}
 			}
 		}//if(!cddlg.bColocalization)
@@ -550,6 +646,8 @@ public class Detect_Particles implements PlugIn {
 		String [] ColTitles = new String [] {"Abs_frame","X_(px)","Y_(px)","Channel","Slice","Frame","xMin","yMin","xMax","yMax","NArea","IntegratedInt"};
 		ArrayList<double[]> spotsChRef = new ArrayList<double[]>();
 		ArrayList<double[]> spotsChFol;
+		
+		int nTableCount=0;
 
 		
 		//coordinates
@@ -599,10 +697,11 @@ public class Detect_Particles implements PlugIn {
 				}
 				
 				spotsChFol = correspChannelIntensities(spotsChRef, nFolChNum, nFrame, nSlice);
-				
+			
 				for(i=0;i<spotsChRef.size();i++)
 				{
 					cd.ptable.incrementCounter();
+					nTableCount++;
 					temp1 = spotsChRef.get(i);
 					temp2 = spotsChFol.get(i);
 					for(j=0;j<12;j++)
@@ -628,9 +727,33 @@ public class Detect_Particles implements PlugIn {
 						spotROI.setStrokeColor(colorCh2);
 					spotROI.setPosition(nRefChNum,(int)temp1[4],(int)temp1[5]);
 					//spotROI.setPosition((int)temp1[0]);
-					SpotsPositions.add(spotROI);		
+					SpotsPositions.add(spotROI);	
+					if(cddlg.nRoiManagerAdd>0)
+					{
+						spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", (int)(2*nTableCount-1),nRefChNum,(int)temp1[4],(int)temp1[5]));
+						imp.setPosition(nRefChNum,(int)temp1[4],(int)temp1[5]);
+						roi_manager.addRoi(spotROI);
+					}
 				}
-				
+				//extra cycle to add more stuff to ROI Manager
+				int lastFrameN=spotsChRef.size();
+				for(i=0;i<spotsChRef.size();i++)
+				{
+					temp1 = spotsChRef.get(i);
+					spotROI = new Roi(temp1[6],temp1[7],temp1[8]-temp1[6],temp1[9]-temp1[7]);
+					if(nRefChNum==1)
+						spotROI.setStrokeColor(colorCh1);
+					else
+						spotROI.setStrokeColor(colorCh2);
+					spotROI.setPosition(nFolChNum,(int)temp1[4],(int)temp1[5]);
+					if(cddlg.nRoiManagerAdd>0)
+					{
+						int index=2*(nTableCount-lastFrameN)+(i+1)*2;
+						spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", index,nFolChNum,(int)temp1[4],(int)temp1[5]));
+						imp.setPosition(nFolChNum,(int)temp1[4],(int)temp1[5]);
+						roi_manager.addRoi(spotROI);
+					}
+				}
 			}//for(nFrame=1; nFrame<=imageinfo[4]; nFrame++)						
 		}//for(nFrame=1; nFrame<=imageinfo[4]; nFrame++)
 		

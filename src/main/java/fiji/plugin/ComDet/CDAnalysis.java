@@ -1,8 +1,7 @@
-package ComDet;
+package fiji.plugin.ComDet;
 
 import ij.IJ;
-import ij.ImagePlus;
-import ij.gui.Plot;
+
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
@@ -14,14 +13,14 @@ import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
-import ij.process.TypeConverter;
 import jaolho.data.lma.LMA;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Stack;
 
-import ComDet.CDDialog;
-import ComDet.OneDGaussian;
+import fiji.plugin.ComDet.CDDialog;
+import fiji.plugin.ComDet.OneDGaussian;
 
 
 public class CDAnalysis {
@@ -61,15 +60,15 @@ public class CDAnalysis {
 	// and particle filtering
 	void detectParticles(ImageProcessor ip, CDDialog fdg, int[] nImagePos, int nSlice, Roi RoiActive_)
 	{
-		int nThreshold;
-		int [] nNoise;
+		float nThreshold;
+		float [] nNoise;
 		int chIndex;
 		
-		FloatProcessor dupip = null ; //duplicate of image
-		ImageProcessor dushort; //duplicate of image
-		ImageProcessor duconvolved = null; //duplicate of image		
-		ByteProcessor dubyte = null; //tresholded image
-		TypeConverter tc; 
+		/** duplicate of image, convolved **/
+		FloatProcessor dupip = null ; 
+		/** thresholded image **/
+		ByteProcessor dubyte = null; 
+		//TypeConverter tc; 
 		
 		if(fdg.bTwoChannels)
 			chIndex = nImagePos[0]-1;
@@ -91,47 +90,34 @@ public class CDAnalysis {
 		
 		//new ImagePlus("convoluted", dupip.duplicate()).show();
 		
-		tc = new TypeConverter(dupip, true);
-		dushort =  tc.convertToShort();
-		//new ImagePlus("iplowpass", dushort.duplicate()).show();				
-			
-		//making a copy of convoluted image
-		duconvolved = dushort.duplicate();
-
-		//new ImagePlus("convoluted", dushort.duplicate()).show();
-		
-		
-		nNoise  = getThreshold(dushort, fdg.nSensitivity[chIndex]);		
+		nNoise  = getThreshold(dupip);
+		//nNoise  = getThreshold(dupip.duplicate(), fdg.nSensitivity[chIndex]);
+						
 		nThreshold = nNoise[0] +  fdg.nSensitivity[chIndex]*nNoise[1];
+
 		
-		
-		//thresholding
-		dushort.threshold(nThreshold);
-		//convert to byte
-		dubyte  = (ByteProcessor) dushort.convertToByte(false);
-		
+		dubyte  = thresholdFloat(dupip,nThreshold);
 		//new ImagePlus("thresholded", dubyte.duplicate()).show();
-		//if(fdg.nKernelSize[chIndex]>3)
-		//{
+		
+		if(fdg.nKernelSize[chIndex]>3)
+		{
 			dubyte.dilate();		
 			
 			dubyte.erode();
-		//}
-		//new ImagePlus("eroded", dubyte.duplicate()).show();
-		//new ImagePlus("byte", dubyte.duplicate()).show();
-			
-		//labelParticles(dubyte, ip, fdg, nFrame, SpotsPositions_, RoiActive_,nNoise[1]);
-		labelParticles(dubyte, duconvolved, ip, fdg, nImagePos, nSlice, RoiActive_);
+		}
+		//new ImagePlus("thresholded_eroded", dubyte.duplicate()).show();
+
+		labelParticles(dubyte, dupip, ip, fdg, nImagePos, nSlice, RoiActive_);
 		
 	}
 	
-	//function that finds centroid x,y and area
+	/** function that finds centroid x,y and area
 	//of spots after thresholding
 	//based on connected components	labeling Java code
 	//implemented by Mariusz Jankowski & Jens-Peer Kuska
 	//and in March 2012 available by link
     //http://www.izbi.uni-leipzig.de/izbi/publikationen/publi_2004/IMS2004_JankowskiKuska.pdf
-	
+     */	
 	void labelParticles(ImageProcessor ipBinary,  ImageProcessor ipConvol, ImageProcessor ipRaw,  CDDialog fdg, int [] nImagePos, int nFrame, Roi RoiAct)//, boolean bIgnore)//, double dSymmetry_)
 	{
 		//double dPSFsigma = fdg.dPSFsigma;
@@ -699,9 +685,11 @@ public class CDAnalysis {
 
 
 	
-	//returns value of mean intensity+nThreshold*SD based on 
-	//fitting of image histogram to gaussian function
-	int [] getThreshold(ImageProcessor thImage, int nSDgap)
+	/** 
+	 *  returns value of mean intensity and SD in float array based on 
+	 *  fitting of image histogram to Gaussian function
+	**/
+	float [] getThreshold(ImageProcessor thImage)
 	{
 		ImageStatistics imgstat;
 
@@ -716,11 +704,15 @@ public class CDAnalysis {
 		double [] dFitErrors;
 		double dErrCoeff;
 		LMA fitlma;
-		int [] results;
+		float [] results;
 		int [] nHistgr;
 		int nBinSizeEst = 256;
 		boolean bOptimal = false;
 		int nPeakNew;
+		
+		
+		
+		nBinSizeEst =getBinOptimalNumber(thImage);
 		
 		//searching for the optimal for fitting intensity histogram's bin size
 	
@@ -767,7 +759,7 @@ public class CDAnalysis {
 				if(nBinSizeEst> 1000)
 				{
 					//ok, seems there is one very high peak/bin, let's remove it					
-					nBinSizeEst = 256;
+					//nBinSizeEst = 256;
 					thImage.setHistogramSize(nBinSizeEst);	
 					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
 					nHistSize = imgstat.histogram.length;											
@@ -874,24 +866,124 @@ public class CDAnalysis {
 		for (i=0;i<3;i++)
 			dFitErrors[i] *= 100/fitlma.parameters[i]; 
 		
-		if (dFitErrors[1]> 20 || dMean<imgstat.min || dMean> imgstat.max ||  dSD < imgstat.min || dSD> imgstat.max)
+		/*if (dFitErrors[1]> 20 || dMean<imgstat.min || dMean> imgstat.max ||  dSD < imgstat.min || dSD> imgstat.max)
 		{			
 			//fit somehow failed
 			//return (int)(imgstat.mean + nSDgap*imgstat.stdDev);
-			results = new int [] {(int) imgstat.mean,(int) imgstat.stdDev};
+			//results = new int [] {(int) imgstat.mean,(int) imgstat.stdDev};
+			results = new float [] {(float) imgstat.mean,(float) imgstat.stdDev};
 			return results;
 		}
 		else
-		{
+		{*/
 			//return (int)(dMean + nSDgap*dSD);
-			results = new int [] {(int) dMean,(int) dSD};
+			//results = new int [] {(int) dMean,(int) dSD};
+			results = new float [] {(float) dMean,(float) dSD};
 			return results;
-		}
+		//}
 		
 		
 	}
 	
-	///Convolution speed optimized routines	
+	/** function returns optimal bin number for the image histogram
+	 *  according to the Freedman-Diaconis rule (check wiki) **/
+	int getBinOptimalNumber(ImageProcessor ip)
+	{
+		//int nBinSize;
+		int width, height;
+		int pixelCount;
+		//float quart25;
+		//float quart75;
+		//first let's calculate median
+		//this part is taken from ImageJ source code
+		//and adapted for the whole image
+		
+		width=ip.getWidth();
+		height=ip.getHeight();
+		pixelCount=width*height;
+		
+		//Object pixels = ip.getPixels();
+		float[] pixels2 = new float[pixelCount];
+		//float[] pixels2;
+		System.arraycopy((float[])ip.getPixels(),0,pixels2,0,pixelCount);
+		//byte[] mask = ip.getMaskArray();
+		/*
+		int i;//, mi;
+		float v;
+		int count = 0;
+		for (int y=0; y<height; y++) 
+		{
+			i = y*width;
+			//mi = my*width;
+			for (int x=0; x<width; x++) 
+			{
+				//if (mask==null||mask[mi++]!=0) 
+				//{
+					//v = pixels[i];
+					//if (v>=minThreshold && v<=maxThreshold)
+						//pixels2[count++] = v;
+						pixels2[count++] = (float)pixels[i];
+				//}
+				i++;
+			}
+		}
+		*/
+		Arrays.sort(pixels2);
+		//int middle = pixels2.length/2;
+		int qi25 = Math.round(pixelCount*0.25f);
+		int qi75 = Math.round(pixelCount*0.75f);
+		/*if ((pixels2.length&1)==0) //even
+			median = (pixels2[middle-1] + pixels2[middle])/2f;
+		else
+			median = pixels2[middle];*/
+		float IQR = pixels2[qi75]-pixels2[qi25];
+		double h= 2*IQR*Math.pow((double)pixelCount, -1.0/3.0);
+		
+		return (int)Math.round((pixels2[pixelCount-1]-pixels2[0])/h);
+			
+	}
+	
+	/** function thresholds FloatProcessor and returns byte version
+	 * 
+	 */
+	ByteProcessor thresholdFloat(FloatProcessor ip, float dThreshold)
+	{
+		int width=ip.getWidth();
+		int height= ip.getHeight();
+		int i;
+		ByteProcessor bp = new ByteProcessor(width, height);
+		float[] flPixels = (float[])ip.getPixels();
+		byte[] btPixels = (byte[])bp.getPixels();
+		
+		for (int y=0; y<height; y++) 
+		{
+			i = y*width;
+			for (int x=0; x<width; x++) 
+			{
+				if(flPixels[i]>=dThreshold)
+				{
+					//btPixels[i]=(byte)255;
+					bp.set(x, y, 255);
+				}
+				else
+				{
+					//btPixels[i]=(byte)0;
+					bp.set(x, y, 0);
+				}				
+				i++;
+			}
+		}
+				
+		return bp;
+	}
+	/** Convolution speed optimized routines
+	 * 	
+	 * @param dupip image processor
+	 * @param kernel convolution 1D kernel
+	 * @param kw
+	 * @param kh
+	 * @return
+	 */
 	boolean SMLconvolveFloat(ImageProcessor dupip, float[] kernel, int kw, int kh)
 	{
 		
