@@ -42,6 +42,9 @@ public class CDDialog {
 	 * 2 - add only colocalized particles
 	 * **/
 	int nRoiManagerAdd;
+	/** Whether to segment large particles
+	 * **/
+	boolean bSegmentLargeParticles=false;
 
 	
 	//colocalization analysis parameters
@@ -79,14 +82,15 @@ public class CDDialog {
 		if(!nCurrentVersion.equals(ComDetConstants.ComDetVersion))
 		{
 			IJ.showMessage("This is a new installation or an update to "+ComDetConstants.ComDetVersion+" version of ComDet plugin!\n "
-					+ "Take notice that detection algorithm has changed in comparison to previous versions.\n"
-					+"Check https://github.com/ekatrukha/ComDet/wiki/Updates-history for description. ");
+					//+ "Take notice that detection algorithm has changed in comparison to previous versions.\n"
+					+"Check https://github.com/ekatrukha/ComDet/wiki/Updates-history for description of changes. ");
 			Prefs.set("ComDet.PluginVersion",ComDetConstants.ComDetVersion);
 		}
 		
 		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
 		fpDial.addMessage("Detection parameters:\n");
 		fpDial.addCheckbox("Include larger particles?", Prefs.get("ComDet.bBigParticles", true));		
+		fpDial.addCheckbox("Segment larger particles (slow)?", Prefs.get("ComDet.bSegmentLargeParticles", false));
 		if(ChNumber == 2)
 		{
 			fpDial.addChoice("Two channel detection:", TwoChannelOption, Prefs.get("ComDet.TwoChannelOption", "Detect in both channels independently"));
@@ -117,6 +121,9 @@ public class CDDialog {
             return false;
 		bBigParticles = fpDial.getNextBoolean();
 		Prefs.set("ComDet.bBigParticles", bBigParticles);
+		bSegmentLargeParticles = fpDial.getNextBoolean();
+		Prefs.set("ComDet.bSegmentLargeParticles", bSegmentLargeParticles);
+
 		if(ChNumber == 2)
 		{
 			nTwoChannelOption = fpDial.getNextChoiceIndex();

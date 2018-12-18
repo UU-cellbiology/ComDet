@@ -8,7 +8,8 @@ import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
 import ij.plugin.filter.Convolver;
 import ij.plugin.filter.GaussianBlur;
-
+import ij.plugin.filter.MaximumFinder;
+import ij.process.Blitter;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
@@ -68,7 +69,8 @@ public class CDAnalysis {
 		FloatProcessor dupip = null ; 
 		/** thresholded image **/
 		ByteProcessor dubyte = null; 
-		//TypeConverter tc; 
+		ByteProcessor dubyteWS = null; 
+		MaximumFinder maxF = new MaximumFinder(); 
 		
 		if(fdg.bTwoChannels)
 			chIndex = nImagePos[0]-1;
@@ -99,12 +101,20 @@ public class CDAnalysis {
 		dubyte  = thresholdFloat(dupip,nThreshold);
 		//new ImagePlus("thresholded", dubyte.duplicate()).show();
 		
-		if(fdg.nKernelSize[chIndex]>3)
+		if(fdg.nKernelSize[chIndex]>5 )
 		{
 			dubyte.dilate();		
 			
 			dubyte.erode();
 		}
+		if(fdg.bSegmentLargeParticles && fdg.bBigParticles)
+		{
+			dubyteWS= maxF.findMaxima(dupip, fdg.nSensitivity[chIndex]*nNoise[1], MaximumFinder.SEGMENTED, false);
+			dubyte.copyBits(dubyteWS, 0, 0, Blitter.AND);
+		}
+		
+		
+
 		//new ImagePlus("thresholded_eroded", dubyte.duplicate()).show();
 
 		labelParticles(dubyte, dupip, ip, fdg, nImagePos, nSlice, RoiActive_);
@@ -155,12 +165,12 @@ public class CDAnalysis {
 			chIndex = 0;
 		
 		
-		int [] nMaxPos;
+		//int [] nMaxPos;
 		//int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
-		int RoiRad = (int) Math.ceil(3*fdg.dPSFsigma[chIndex]);
-		int nMaxInd, nMaxIntensity;
-		double [] nLocalThreshold;
-		int nListLength;
+		//int RoiRad = (int) Math.ceil(3*fdg.dPSFsigma[chIndex]);
+		//int nMaxInd, nMaxIntensity;
+		//double [] nLocalThreshold;
+		//int nListLength;
 					
 		
 		for (int r = 1; r < width-1; r++)
@@ -173,7 +183,7 @@ public class CDAnalysis {
 				/* push the position in the stack and assign label */
 				sstack.push(new int [] {r, c}) ;
 				stackPost.clear();
-				stackPost.add(new int [] {r, c, ipRaw.getPixel(r,c)}) ;
+				stackPost.add(new int [] {r, c, ipConvol.getPixel(r,c)}) ;
 				label[r][c] = lab ;
 				nArea = 0;
 				dIMax = -1000;
@@ -318,10 +328,10 @@ public class CDAnalysis {
 				
 				}
 				////probably many particles in the thresholded area				
-				if(nArea >= fdg.nAreaMax[chIndex] && !bBorder)
+				if(nArea >= fdg.nAreaMax[chIndex] && !bBorder && bBigParticles)
 				{
-					if(bBigParticles)
-					{
+					//if(bBigParticles)
+					//{
 						
 						
 						xCentroid /= dInt;
@@ -359,7 +369,8 @@ public class CDAnalysis {
 							}
 							
 					
-					}//if(bBigParticles)
+					//}//if(bBigParticles)
+					/*
 					else
 					{
 						while ( !stackPost.isEmpty()) 
@@ -418,11 +429,7 @@ public class CDAnalysis {
 									//ptable.addValue("Abs_count", nFrame+1);
 									
 									ptable_lock.unlock();
-									//adding spot to the overlay
-									/*spotROI = new OvalRoi((int)(0.5+nMaxPos[0]-2*dPSFsigma),(int)(0.5+nMaxPos[1]-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
-									spotROI.setStrokeColor(Color.yellow);	
-									spotROI.setPosition(nFrame+1);
-									SpotsPositions__.add(spotROI);*/
+								
 									nPatCount++;				
 								}
 	
@@ -448,7 +455,7 @@ public class CDAnalysis {
 							
 						
 						}//while ( !stackPost.isEmpty())
-					}//if(bBigParticles)
+					}//if(bBigParticles)*/
 				
 				}
 				
@@ -953,7 +960,7 @@ public class CDAnalysis {
 		int i;
 		ByteProcessor bp = new ByteProcessor(width, height);
 		float[] flPixels = (float[])ip.getPixels();
-		byte[] btPixels = (byte[])bp.getPixels();
+//		byte[] btPixels = (byte[])bp.getPixels();
 		
 		for (int y=0; y<height; y++) 
 		{
