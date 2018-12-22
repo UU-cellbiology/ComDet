@@ -8,13 +8,13 @@
     <parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>14.0.0</version>
+		<version>23.2.0</version>
 		<relativePath />
     </parent>
  
     <groupId>sc.fiji</groupId>
     <artifactId>ComDet_</artifactId>
-    <version>0.3.8</version>
+    <version>0.4.0</version>
  
     <name>ComDet</name>
     <description>ComDet Plugin for ImageJ</description>
@@ -101,6 +101,10 @@
         <dependency>
         	<groupId>gov.nist.math</groupId>
         	<artifactId>jama</artifactId>
+        </dependency>
+        <dependency>
+        	<groupId>sc.fiji</groupId>
+        	<artifactId>fiji-lib</artifactId>
         </dependency>
     </dependencies>
 </project>

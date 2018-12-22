@@ -1,7 +1,7 @@
 package fiji.plugin.ComDet;
 
 import ij.IJ;
-
+import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.measure.Measurements;
 import ij.measure.ResultsTable;
@@ -16,6 +16,7 @@ import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import jaolho.data.lma.LMA;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Stack;
@@ -36,17 +37,18 @@ public class CDAnalysis {
 	/** array holding number of particles in each slice/frame **/
 	int [] nParticlesCount;
 	int [][] colocstat;
-	//int nTrue;
-	//int nFalse;
-	//ResultsTable ptable = new ResultsTable(); // table with particle's approximate center coordinates
-	public ResultsTable ptable = Analyzer.getResultsTable(); // table with particle's approximate center coordinates	
-	java.util.concurrent.locks.Lock ptable_lock = new java.util.concurrent.locks.ReentrantLock();
 	
+	Color colorCh;
+	/** Results table with particle's approximate center coordinates **/
+	public ResultsTable ptable = Analyzer.getResultsTable(); 	
+	java.util.concurrent.locks.Lock ptable_lock = new java.util.concurrent.locks.ReentrantLock();
+	public Overlay overlay_;
 	
 	//default constructor 
 	public CDAnalysis()
 	{
 		ptable.setPrecision(5);
+		overlay_ = null;
 		//SummaryTable = new TextWindow("Summary", "Frame Number\tNumber of Particles", "123\t123321", 450, 300);
 		//SummaryTable.setColumnHeadings("Frame Number\tNumber of Particles");
 		//SummaryTable.append();
@@ -130,7 +132,9 @@ public class CDAnalysis {
      */	
 	void labelParticles(ImageProcessor ipBinary,  ImageProcessor ipConvol, ImageProcessor ipRaw,  CDDialog fdg, int [] nImagePos, int nFrame, Roi RoiAct)//, boolean bIgnore)//, double dSymmetry_)
 	{
-		//double dPSFsigma = fdg.dPSFsigma;
+
+		
+		Roi spotROI;
 		int width = ipBinary.getWidth();
 		int height = ipBinary.getHeight();
 		
@@ -296,8 +300,11 @@ public class CDAnalysis {
 							 }
 							 if(bInRoi)
 							 {
-						
-								 dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
+								 
+								 //add to table
+								 if(overlay_==null)
+								 {
+								 	dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
 									ptable_lock.lock();
 									ptable.incrementCounter();									
 									ptable.addValue("Abs_frame", nFrame+1);
@@ -315,11 +322,15 @@ public class CDAnalysis {
 									ptable.addValue("IntegratedInt", dIMax);
 									
 									ptable_lock.unlock();
+								 }
+								 //preview mode, show overlay
+								 else
+								 {
 									//adding spot to the overlay
-									/*spotROI = new OvalRoi((int)(0.5+xCentroid-2*dPSFsigma),(int)(0.5+yCentroid-2*dPSFsigma),(int)(4.0*dPSFsigma),(int)(4.0*dPSFsigma));
-									spotROI.setStrokeColor(Color.yellow);	
-									spotROI.setPosition(nFrame+1);
-									SpotsPositions__.add(spotROI);*/
+									spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
+									spotROI.setStrokeColor(colorCh);									
+									overlay_.add(spotROI);
+								 }
 									nPatCount++;
 
 							 }
@@ -348,121 +359,43 @@ public class CDAnalysis {
 								 if(bInRoi)
 								 {						
 									 dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
-									ptable_lock.lock();
-									ptable.incrementCounter();									
-									ptable.addValue("Abs_frame", nFrame+1);
-									ptable.addValue("X_(px)",xCentroid);	
-									ptable.addValue("Y_(px)",yCentroid);
-									//ptable.addValue("Frame_Number", nFrame+1);
-									ptable.addValue("Channel", nImagePos[0]);
-									ptable.addValue("Slice", nImagePos[1]);
-									ptable.addValue("Frame", nImagePos[2]);		
-									ptable.addValue("xMin", xMin);
-									ptable.addValue("yMin", yMin);
-									ptable.addValue("xMax", xMax);
-									ptable.addValue("yMax", yMax);
-									ptable.addValue("NArea", nArea);
-									ptable.addValue("IntegratedInt", dIMax);
-									ptable_lock.unlock();
+									 //add to table
+									 if(overlay_==null)
+									 {
+										ptable_lock.lock();
+										ptable.incrementCounter();									
+										ptable.addValue("Abs_frame", nFrame+1);
+										ptable.addValue("X_(px)",xCentroid);	
+										ptable.addValue("Y_(px)",yCentroid);
+										//ptable.addValue("Frame_Number", nFrame+1);
+										ptable.addValue("Channel", nImagePos[0]);
+										ptable.addValue("Slice", nImagePos[1]);
+										ptable.addValue("Frame", nImagePos[2]);		
+										ptable.addValue("xMin", xMin);
+										ptable.addValue("yMin", yMin);
+										ptable.addValue("xMax", xMax);
+										ptable.addValue("yMax", yMax);
+										ptable.addValue("NArea", nArea);
+										ptable.addValue("IntegratedInt", dIMax);
+										ptable_lock.unlock();
+									 }
+									 else
+									 {
+										//adding spot to the overlay
+										spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
+										spotROI.setStrokeColor(colorCh);									
+										overlay_.add(spotROI); 
+									 }
 									nPatCount++;
 								 }
 							}
-							
-					
-					//}//if(bBigParticles)
-					/*
-					else
-					{
-						while ( !stackPost.isEmpty()) 
-						{
-							//find element with max intensity
-							nMaxInd = getIndexofMaxIntensity(stackPost);
-							nMaxPos = stackPost.get(nMaxInd);
-							xCentroid = nMaxPos[0];
-							yCentroid = nMaxPos[1];
-							nMaxIntensity = nMaxPos[2]; 
-							//check whether it is inside ROI
-							bInRoi = true;
-							if(RoiAct!=null)
-							{
-								if(!RoiAct.contains((int)xCentroid, (int)yCentroid))
-									bInRoi=false;
-							}
-							//yes, inside
-							if(bInRoi)
-							{
-								//check whether it is above the threshold level
-								if(xCentroid>RoiRad+1 && yCentroid>RoiRad+1 && xCentroid< width-2-RoiRad && yCentroid< height-2-RoiRad)
-								{
-									nLocalThreshold = getLocalThreshold(ipConvol,(int)xCentroid,(int)yCentroid, RoiRad, fdg.nSensitivity[chIndex]);
-									//double nTemp=(nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1];
-								
-									if((nMaxIntensity-nLocalThreshold[0])/nLocalThreshold[1]<fdg.nSensitivity[chIndex])
-										bInRoi = false;
-								}
-								else
-									bInRoi = false;
-								//all checks passed
-								if(bInRoi)
-								{
-									xMin=(int)xCentroid-RoiRad-1;
-									yMin=(int)yCentroid-RoiRad-1;
-									xMax=(int)xCentroid+RoiRad+1;
-									yMax=(int)yCentroid+RoiRad+1;
-									dIMax=getIntIntNoise( ipRaw, xMin, xMax, yMin, yMax);
-									ptable_lock.lock();
-									ptable.incrementCounter();
-									ptable.addValue("Abs_frame", nFrame+1);
-									ptable.addValue("X_(px)",xCentroid);	
-									ptable.addValue("Y_(px)",yCentroid);
-									//ptable.addValue("Frame_Number", nFrame+1);
-									//ptable.addValue("NArea", nArea);
-									ptable.addValue("Channel", nImagePos[0]);
-									ptable.addValue("Slice", nImagePos[1]);
-									ptable.addValue("Frame", nImagePos[2]);
-									ptable.addValue("xMin", xMin);
-									ptable.addValue("yMin", yMin);
-									ptable.addValue("xMax", xMax);
-									ptable.addValue("yMax", yMax);
-									ptable.addValue("NArea", RoiRad*RoiRad);
-									ptable.addValue("IntegratedInt", dIMax);
-									//ptable.addValue("Abs_count", nFrame+1);
-									
-									ptable_lock.unlock();
-								
-									nPatCount++;				
-								}
-	
-								
-							}
-							//remove maximum and its surrounding from the list
-							nListLength = stackPost.size();
-							i=0;
-							while(nListLength>0 && i<nListLength)
-							{
-								nMaxPos =stackPost.get(i);
-								if(nMaxPos[0]>=xCentroid-RoiRad && nMaxPos[0]<=xCentroid+RoiRad && nMaxPos[1]>=yCentroid-RoiRad && nMaxPos[1]<=yCentroid+RoiRad)
-								{
-									stackPost.remove(i);
-									nListLength--;
-								}
-								else
-								{
-									i++;
-								}
-								
-							}
-							
-						
-						}//while ( !stackPost.isEmpty())
-					}//if(bBigParticles)*/
 				
 				}
 				
 				lab++ ;
 			} // end for cycle
-				
-		this.nParticlesCount[nFrame]=nPatCount;
+		if(overlay_==null)		 
+			this.nParticlesCount[nFrame]=nPatCount;
 		return;// label ;
 
 		
@@ -873,21 +806,11 @@ public class CDAnalysis {
 		for (i=0;i<3;i++)
 			dFitErrors[i] *= 100/fitlma.parameters[i]; 
 		
-		/*if (dFitErrors[1]> 20 || dMean<imgstat.min || dMean> imgstat.max ||  dSD < imgstat.min || dSD> imgstat.max)
-		{			
-			//fit somehow failed
-			//return (int)(imgstat.mean + nSDgap*imgstat.stdDev);
-			//results = new int [] {(int) imgstat.mean,(int) imgstat.stdDev};
-			results = new float [] {(float) imgstat.mean,(float) imgstat.stdDev};
-			return results;
-		}
-		else
-		{*/
-			//return (int)(dMean + nSDgap*dSD);
-			//results = new int [] {(int) dMean,(int) dSD};
+	
+		
 			results = new float [] {(float) dMean,(float) dSD};
 			return results;
-		//}
+	
 		
 		
 	}
@@ -899,50 +822,22 @@ public class CDAnalysis {
 		//int nBinSize;
 		int width, height;
 		int pixelCount;
-		//float quart25;
-		//float quart75;
-		//first let's calculate median
-		//this part is taken from ImageJ source code
-		//and adapted for the whole image
+
 		
 		width=ip.getWidth();
 		height=ip.getHeight();
 		pixelCount=width*height;
 		
-		//Object pixels = ip.getPixels();
+
 		float[] pixels2 = new float[pixelCount];
 		//float[] pixels2;
 		System.arraycopy((float[])ip.getPixels(),0,pixels2,0,pixelCount);
-		//byte[] mask = ip.getMaskArray();
-		/*
-		int i;//, mi;
-		float v;
-		int count = 0;
-		for (int y=0; y<height; y++) 
-		{
-			i = y*width;
-			//mi = my*width;
-			for (int x=0; x<width; x++) 
-			{
-				//if (mask==null||mask[mi++]!=0) 
-				//{
-					//v = pixels[i];
-					//if (v>=minThreshold && v<=maxThreshold)
-						//pixels2[count++] = v;
-						pixels2[count++] = (float)pixels[i];
-				//}
-				i++;
-			}
-		}
-		*/
+	
 		Arrays.sort(pixels2);
 		//int middle = pixels2.length/2;
 		int qi25 = Math.round(pixelCount*0.25f);
 		int qi75 = Math.round(pixelCount*0.75f);
-		/*if ((pixels2.length&1)==0) //even
-			median = (pixels2[middle-1] + pixels2[middle])/2f;
-		else
-			median = pixels2[middle];*/
+	
 		float IQR = pixels2[qi75]-pixels2[qi25];
 		double h= 2*IQR*Math.pow((double)pixelCount, -1.0/3.0);
 		
@@ -983,6 +878,7 @@ public class CDAnalysis {
 				
 		return bp;
 	}
+	
 	/** Convolution speed optimized routines
 	 * 	
 	 * @param dupip image processor
