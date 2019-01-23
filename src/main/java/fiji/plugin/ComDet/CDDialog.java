@@ -128,7 +128,7 @@ public class CDDialog implements DialogListener{
 
 				fpDial.addMessage("\n\n Colocalization analysis:\n");
 				fpDial.addCheckbox("Calculate colocalization?", Prefs.get("ComDet.bColocalization", false));
-				fpDial.addNumericField("Max distance between colocalized spot", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
+				fpDial.addNumericField("Max distance between colocalized spots", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
 				fpDial.addCheckbox("Plot detected particles in both channels?", Prefs.get("ComDet.bPlotBothChannels", false));
 		}		   
 		if(ChNumber == 1)
@@ -306,16 +306,7 @@ public class CDDialog implements DialogListener{
 			nKernelSize[i] = (int) Math.ceil(3.0*dPSFsigma[i]);
 			if(nKernelSize[i]%2 == 0)
 				 nKernelSize[i]++;
-	
-			/*if(nSensitivity[i]<3)
-			{
-				nSensitivity[i] += 3;
-			}
-			else
-			{
-				nSensitivity[i] = (nSensitivity[i]-2)*10;
 
-			}*/
 		}
 		return true;
 		

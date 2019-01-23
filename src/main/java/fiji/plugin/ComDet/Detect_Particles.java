@@ -90,6 +90,11 @@ public class Detect_Particles implements PlugIn {
 			
 		}
 		
+		//log parameters to Log window
+		ComDetLog();
+		
+		
+		
 		if(cddlg.bColocalization)
 		{
 			twochannels_imp = (CompositeImage) imp;
@@ -667,6 +672,35 @@ public class Detect_Particles implements PlugIn {
 			
 		}
 		return spotsChFol;		
+	}
+	
+	
+	void ComDetLog()
+	{
+		int i;
+		
+		//let's log stuff
+		IJ.log(" --- ComDet plugin version " + ComDetConstants.ComDetVersion+ " --- ");
+		IJ.log("Image title: \"" + imp.getTitle() + "\"");
+		IJ.log("Detection parameters");
+		IJ.log("Include larger particles: "+Boolean.toString(cddlg.bBigParticles));
+		IJ.log("Segment larger particles: "+Boolean.toString(cddlg.bSegmentLargeParticles));
+		IJ.log("Number of channels: "+Integer.toString(cddlg.ChNumber));
+		for (i=0;i<cddlg.ChNumber;i++)
+		{
+			IJ.log("Channel: "+Integer.toString(i+1));
+			IJ.log("Approximate particle size: "+Double.toString(cddlg.dPSFsigma[i]*2.0));
+			IJ.log("Intensity threshold (in SD): "+Double.toString(cddlg.nSensitivity[i]));
+		}
+		if(cddlg.ChNumber==2)
+		{
+			IJ.log("Calculate colocalization: "+Boolean.toString(cddlg.bColocalization));
+			if(cddlg.bColocalization)
+				IJ.log("Max distance between colocalized spots: "+Double.toString(cddlg.dColocDistance));
+				
+			
+		}
+		
 	}
 
 
