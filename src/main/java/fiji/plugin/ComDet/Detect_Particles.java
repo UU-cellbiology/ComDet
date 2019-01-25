@@ -42,7 +42,9 @@ public class Detect_Particles implements PlugIn {
 	Color colorCh1;
 	Color colorCh2;
 	Color colorColoc = Color.yellow;
-	public TextWindow SummaryTable;  
+	public TextWindow SummaryTable; 
+	/**integrated intensities in both channels **/
+	double [][] dIntBoth;
 
 	//launch search of particles 
 	public void run(String arg) {
@@ -257,7 +259,7 @@ public class Detect_Particles implements PlugIn {
 		double [] xmax;
 		double [] ymax;
 		double [] dInt;
-		double [][] dIntBoth;
+
 	
 		double [] frames;
 		double [] channel;
@@ -350,6 +352,7 @@ public class Detect_Particles implements PlugIn {
 			
 			ArrayList<double[]> spotsCh1 = new ArrayList<double[]>();
 			ArrayList<double[]> spotsCh2 = new ArrayList<double[]>();
+			
 			double[] spotsChFolInt;
 
 			
@@ -394,20 +397,7 @@ public class Detect_Particles implements PlugIn {
 							}
 						}
 					}
-					//finding corresponding intensities in another channel
-					
-					spotsChFolInt = correspChannelIntensitiesSimple(spotsCh1, 2, nFrame, nSlice);
-					for (i=0;i<spotsChFolInt.length;i++)
-					{
-						dIntBoth[1][(int) spotsCh1.get(i)[2]]=spotsChFolInt[i];
-						
-					}
-					spotsChFolInt = correspChannelIntensitiesSimple(spotsCh2, 1, nFrame, nSlice);
-					for (i=0;i<spotsChFolInt.length;i++)
-					{
-						dIntBoth[0][(int) spotsCh2.get(i)[2]]=spotsChFolInt[i];
-						
-					}
+
 					
 					
 					nColocCount = 0;
@@ -442,6 +432,7 @@ public class Detect_Particles implements PlugIn {
 						{
 							dIntermediate2 = spotsCh2.get(nCandidate);
 							dIntermediate2[3] = 1;
+							dIntermediate1[3] = 1;
 							spotsCh2.set(nCandidate,dIntermediate2);
 							//average x, y coordinames
 							dIntermediate2[0] = 0.5*(dIntermediate2[0]+dIntermediate1[0]);
@@ -453,18 +444,34 @@ public class Detect_Particles implements PlugIn {
 							//colocIntRatio[(int) dIntermediate1[2]]=dIntermediate1[8]/dIntermediate2[8];
 							//colocIntRatio[(int) dIntermediate2[2]]=dIntermediate2[8]/dIntermediate1[8];
 							//adjust roi as average
-							double xminav=0.5*(dIntermediate1[4]+dIntermediate2[4]);
-							double xmaxav=0.5*(dIntermediate1[5]+dIntermediate2[5]);
-							double yminav=0.5*(dIntermediate1[6]+dIntermediate2[6]);
-							double ymaxav=0.5*(dIntermediate1[7]+dIntermediate2[7]);
+							double xminav=Math.min(dIntermediate1[4],dIntermediate2[4]);
+							double xmaxav=Math.max(dIntermediate1[5],dIntermediate2[5]);
+							double yminav=Math.min(dIntermediate1[6],dIntermediate2[6]);
+							double ymaxav=Math.max(dIntermediate1[7],dIntermediate2[7]);
+
+							//update box coordinates
+							dIntermediate1[4]=xminav;dIntermediate2[4]=xminav;
+							dIntermediate1[5]=xmaxav;dIntermediate2[5]=xmaxav;
+							dIntermediate1[6]=yminav;dIntermediate2[6]=yminav;
+							dIntermediate1[7]=ymaxav;dIntermediate2[7]=ymaxav;
+							
 							//store detection indexes
-							nColocFriend[(int)dIntermediate1[9]-1]=dIntermediate2[9];
-							nColocFriend[(int)dIntermediate2[9]-1]=dIntermediate1[9];
+							nColocFriend[(int)dIntermediate1[2]]=dIntermediate2[9];
+							nColocFriend[(int)dIntermediate2[2]]=dIntermediate1[9];
+							
+							
 							//store ROI coordinates to add to ROI manager later
-							dColocRoiXYArray[(int)dIntermediate2[9]-1][0]=xminav;
-							dColocRoiXYArray[(int)dIntermediate2[9]-1][1]=yminav;
-							dColocRoiXYArray[(int)dIntermediate2[9]-1][2]=xmaxav-xminav;
-							dColocRoiXYArray[(int)dIntermediate2[9]-1][3]=ymaxav-yminav;
+							dColocRoiXYArray[(int)dIntermediate2[2]][0]=xminav;
+							dColocRoiXYArray[(int)dIntermediate2[2]][1]=yminav;
+							dColocRoiXYArray[(int)dIntermediate2[2]][2]=xmaxav;
+							dColocRoiXYArray[(int)dIntermediate2[2]][3]=ymaxav;
+							
+							dColocRoiXYArray[(int)dIntermediate1[2]][0]=xminav;
+							dColocRoiXYArray[(int)dIntermediate1[2]][1]=yminav;
+							dColocRoiXYArray[(int)dIntermediate1[2]][2]=xmaxav;
+							dColocRoiXYArray[(int)dIntermediate1[2]][3]=ymaxav;
+							//dColocRoiXYArray[(int)dIntermediate2[9]-1][2]=xmaxav-xminav;
+							//dColocRoiXYArray[(int)dIntermediate2[9]-1][3]=ymaxav-yminav;
 							for(j=1; j<3; j++)
 							{
 							
@@ -483,7 +490,7 @@ public class Detect_Particles implements PlugIn {
 										
 										imp.setPosition(j,nSlice,nFrame);
 										roi_manager.addRoi(spotROI);
-										nColocROIadded[(int)dIntermediate1[9]-1]=true;
+										nColocROIadded[(int)dIntermediate1[2]]=true;
 									}
 								}
 								SpotsPositions.add(spotROI);
@@ -494,7 +501,28 @@ public class Detect_Particles implements PlugIn {
 					}
 				
 					cd.colocstat[nSlice-1][nFrame-1] = nColocCount;
+					
+					
+					//finding corresponding intensities in another channel
+					correspChannelIntensitiesUpdate(spotsCh1, 2, nFrame, nSlice);
+					correspChannelIntensitiesUpdate(spotsCh2, 1, nFrame, nSlice);
+					/*
+					spotsChFolInt = correspChannelIntensitiesSimple(spotsCh1, 2, nFrame, nSlice);
+					for (i=0;i<spotsChFolInt.length;i++)
+					{
+						dIntBoth[1][(int) spotsCh1.get(i)[2]]=spotsChFolInt[i];
+						
+					}
+					spotsChFolInt = correspChannelIntensitiesSimple(spotsCh2, 1, nFrame, nSlice);
+					for (i=0;i<spotsChFolInt.length;i++)
+					{
+						dIntBoth[0][(int) spotsCh2.get(i)[2]]=spotsChFolInt[i];
+						
+					}
+					*/
 				}//for(nSlice=1;
+				
+				
 				
 			}//for(nFrame=1
 
@@ -548,6 +576,7 @@ public class Detect_Particles implements PlugIn {
 			}
 			
 			cd.ptable.deleteColumn("IntegratedInt");
+			
 			//adding info about colocalization to Results table
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
@@ -559,13 +588,17 @@ public class Detect_Particles implements PlugIn {
 					//check if we already added ROI to ROI manager
 					if(!nColocROIadded[nCount] && cddlg.nRoiManagerAdd>0)
 					{
-						spotROI = new Roi(dColocRoiXYArray[nCount][0],dColocRoiXYArray[nCount][1],dColocRoiXYArray[nCount][2],dColocRoiXYArray[nCount][3]);
+						spotROI = new Roi(dColocRoiXYArray[nCount][0],dColocRoiXYArray[nCount][1],dColocRoiXYArray[nCount][2]-dColocRoiXYArray[nCount][0],dColocRoiXYArray[nCount][3]-dColocRoiXYArray[nCount][1]);
 						spotROI.setStrokeColor(colorColoc);
 						spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
 						spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
 						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
 						roi_manager.addRoi(spotROI);
 					}
+					cd.ptable.setValue("xMin", nCount, dColocRoiXYArray[nCount][0]);
+					cd.ptable.setValue("yMin", nCount, dColocRoiXYArray[nCount][1]);
+					cd.ptable.setValue("xMax", nCount, dColocRoiXYArray[nCount][2]);
+					cd.ptable.setValue("yMax", nCount, dColocRoiXYArray[nCount][3]);
 				}
 				else
 				{
@@ -654,10 +687,11 @@ public class Detect_Particles implements PlugIn {
 	}
 	
 	
-	double[] correspChannelIntensitiesSimple(ArrayList<double[]> spotsChRefX, int nFolChNum, int nFrame, int nSlice)	
+	void correspChannelIntensitiesUpdate(ArrayList<double[]> spotsChRefX, int nFolChNum, int nFrame, int nSlice)	
 	{
-		double[] spotsChFol = new double[spotsChRefX.size()];
+		//double[] spotsChFol = new double[spotsChRefX.size()];
 		ImageProcessor ip;
+		int nChNext;
 		int i;
 		//int nAbsFrame;
 		double [] tempval;
@@ -668,10 +702,27 @@ public class Detect_Particles implements PlugIn {
 		for(i=0;i<spotsChRefX.size();i++)
 		{
 			tempval=spotsChRefX.get(i);
-			spotsChFol[i]=CDAnalysis.getIntIntNoise(ip, (int)tempval[4], (int)tempval[5], (int)tempval[6], (int)tempval[7]);
-			
+			//spotsChFol[i]=CDAnalysis.getIntIntNoise(ip, (int)tempval[4], (int)tempval[5], (int)tempval[6], (int)tempval[7]);
+			dIntBoth[nFolChNum-1][(int)tempval[2]]=CDAnalysis.getIntIntNoise(ip, (int)tempval[4], (int)tempval[5], (int)tempval[6], (int)tempval[7]);
 		}
-		return spotsChFol;		
+		//	recalculating intensity for colocalized spots,
+		// since ROI is updated
+		if(nFolChNum==2)
+			nChNext=1;
+		else
+			nChNext=2;
+		imp.setPositionWithoutUpdate(nChNext, nSlice, nFrame);
+		for(i=0;i<spotsChRefX.size();i++)
+		{
+			ip = imp.getProcessor();
+			tempval=spotsChRefX.get(i);
+			if(tempval[3]>0)
+			{
+				dIntBoth[nChNext-1][(int)tempval[2]]=CDAnalysis.getIntIntNoise(ip, (int)tempval[4], (int)tempval[5], (int)tempval[6], (int)tempval[7]);
+			}
+		}
+		
+		//return spotsChFol;		
 	}
 	
 	
