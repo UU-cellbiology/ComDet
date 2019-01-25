@@ -55,7 +55,7 @@ public class Detect_Particles implements PlugIn {
 		//int nStackSize;
 		
 		IJ.register(Detect_Particles.class);
-		
+
 		
 		cd.ptable.reset(); // erase particle table
 		
