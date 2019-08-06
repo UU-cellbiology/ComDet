@@ -13,9 +13,11 @@ import ij.ImagePlus;
 import ij.WindowManager;
 import ij.gui.Overlay;
 import ij.gui.Roi;
+import ij.measure.ResultsTable;
 import ij.plugin.PlugIn;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
+import ij.text.TextPanel;
 import ij.text.TextWindow;
 
 public class Detect_Particles implements PlugIn {
@@ -42,7 +44,8 @@ public class Detect_Particles implements PlugIn {
 	Color colorCh1;
 	Color colorCh2;
 	Color colorColoc = Color.yellow;
-	public TextWindow SummaryTable; 
+	public TextWindow SummaryTable;
+	public ResultsTable SummaryRT; 
 	/**integrated intensities in both channels **/
 	double [][] dIntBoth;
 
@@ -617,38 +620,27 @@ public class Detect_Particles implements PlugIn {
 	/**show summary and results tables**/
 	void showTable()
 	{
-			String sSumData ="";
-			String sColHeadings ="";
+
 			int nChannel1Pat, nChannel2Pat, nColocNumber;
-						
+				
+			SummaryRT = new ResultsTable();
 	        if(!cddlg.bColocalization)
 	        {
-	        	sColHeadings = "Channel\tSlice\tFrame\tNumber_of_Particles";
 	        	for(int i = 0;i<cd.nParticlesCount.length; i++)
 	        	{
 	        		nCurrPos = imp.convertIndexToPosition(i+1);
-	        		
-	        		sSumData = sSumData +  Integer.toString(nCurrPos[0])+"\t" +Integer.toString(nCurrPos[1])+"\t" +Integer.toString(nCurrPos[2])+"\t" +Integer.toString(cd.nParticlesCount[i])+"\n";;
-	         	//	sSumData = sSumData + Integer.toString(i+1)+"\t"+Integer.toString(cd.nParticlesCount[i])+"\n";
-	         	
-	        		//sSumData = sSumData + 
+	        		SummaryRT.incrementCounter();
+	        		SummaryRT.addValue("Channel", nCurrPos[0]);
+	        		SummaryRT.addValue("Slice", nCurrPos[1]);
+	        		SummaryRT.addValue("Frame", nCurrPos[2]);
+	        		SummaryRT.addValue("Number_of_Particles", cd.nParticlesCount[i]);	        		
+
 	        	}
-			
-	        	Frame frame = WindowManager.getFrame("Summary");
-	        	if (frame!=null && (frame instanceof TextWindow) )
-	        	{
-	        		SummaryTable = (TextWindow)frame;
-	        		SummaryTable.getTextPanel().clear();
-	        		SummaryTable.getTextPanel().setColumnHeadings(sColHeadings);
-	        		SummaryTable.getTextPanel().append(sSumData);
-	        		SummaryTable.getTextPanel().updateDisplay();			
-	        	}
-	        	else
-	        		SummaryTable = new TextWindow("Summary",sColHeadings , sSumData, 450, 300);
+
 	        }
 	        else
 	        {
-	        	sColHeadings = "Slice\tFrame\tParticles_in_Ch1\tParticles_in_Ch2\tColocalized\t%_Ch1_coloc\t%Ch2_coloc\t";
+	
 	        	for(int i = 1;i<=imageinfo[3]; i++)//slice
 	        	{
 		        	for(int j = 1;j<=imageinfo[4]; j++)//frame
@@ -657,28 +649,21 @@ public class Detect_Particles implements PlugIn {
 		        		nChannel1Pat = cd.nParticlesCount[imp.getStackIndex(1,i,j)-1];
 		        		nChannel2Pat = cd.nParticlesCount[imp.getStackIndex(2,i,j)-1];
 		        		nColocNumber = cd.colocstat[i-1][j-1];
-		        		sSumData = sSumData +  Integer.toString(i)+"\t" +Integer.toString(j)+"\t";// +Integer.toString(nCurrPos[2])+"\t" +Integer.toString(cd.nParticlesCount[i])+"\n";;
-	        		
-		        		sSumData = sSumData + Integer.toString(nChannel1Pat)+"\t"+Integer.toString(nChannel2Pat)+"\t" + Integer.toString(nColocNumber)+"\t";
-	        		
-		        		sSumData = sSumData + String.format("%.2f", (100*(double)(nColocNumber)/(double)(nChannel1Pat)))+"\t"+String.format("%.2f", 100*(double)(nColocNumber)/(double)(nChannel2Pat))+"\n";
-	         	
+		        		SummaryRT.incrementCounter();
+		        		SummaryRT.addValue("Slice", i);
+		        		SummaryRT.addValue("Frame", j);
+		        		SummaryRT.addValue("Particles_in_Ch1", nChannel1Pat);
+		        		SummaryRT.addValue("Particles_in_Ch2", nChannel2Pat);
+		        		SummaryRT.addValue("Colocalized", nColocNumber);
+		        		SummaryRT.addValue("%_Ch1_coloc", 100*(double)(nColocNumber)/(double)(nChannel1Pat));
+		        		SummaryRT.addValue("%_Ch2_coloc", 100*(double)(nColocNumber)/(double)(nChannel2Pat));
+		        			         	
 		        	} 
 	        	}
-			
-	        	Frame frame = WindowManager.getFrame("Summary");
-	        	if (frame!=null && (frame instanceof TextWindow) )
-	        	{	        		
-	        		SummaryTable = (TextWindow)frame;	        		
-	        		SummaryTable.getTextPanel().clear();
-	        		SummaryTable.getTextPanel().setColumnHeadings(sColHeadings);
-	        		SummaryTable.getTextPanel().append(sSumData);
-	        		SummaryTable.getTextPanel().updateDisplay();		
+	        	
 
-	        	}
-	        	else
-	        		SummaryTable = new TextWindow("Summary",sColHeadings , sSumData, 450, 300);
 	        }
+	        SummaryRT.show("Summary");
 			
 	        //Show Results table with coordinates
 	            
