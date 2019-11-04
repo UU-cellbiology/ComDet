@@ -41,7 +41,7 @@ class tableComparator implements Comparator<double []> {
 
 public class Sort_Results_CD implements PlugIn {
 
-	CDAnalysis sml = new CDAnalysis();
+	CDAnalysis sml = new CDAnalysis(1);
 	
 	@Override
 	public void run(String arg) {
@@ -154,7 +154,10 @@ public class Sort_Results_CD implements PlugIn {
 		
 	}
 	
-	//sorting function for external calls
+	/** Function that sorts ResultsTable (used by external calls)
+	 * @param smlext CDanalysis object containing a table 
+	 * @param nSortingColumn number of column to sort
+	 * @param descending order of sorting**/
 	public static void sorting_external_silent(CDAnalysis smlext, int nSortingColumn, boolean ascending) 
 	{
 		int colNumber;

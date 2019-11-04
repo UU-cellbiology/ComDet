@@ -30,13 +30,12 @@ public class CDAnalysis {
 	ImageStatistics imgstat;
 	GaussianBlur lowpassGauss = new GaussianBlur(); //low pass prefiltering
 	Convolver      colvolveOp = new Convolver(); //convolution filter
-	/** convolution filter for first channel **/
-	float []		 fConKernel;
-	/** convolution filter for second channel **/
-	float []		 fConKernelTwo; //for the second channel  
+	
+	/** convolution filter for specific channel **/
+	float [][]		 fConKernel;  
 	/** array holding number of particles in each slice/frame **/
 	int [] nParticlesCount;
-	int [][] colocstat;
+	int [][][] colocstat;
 	
 	Color colorCh;
 	/** Results table with particle's approximate center coordinates **/
@@ -45,10 +44,11 @@ public class CDAnalysis {
 	public Overlay overlay_;
 	
 	//default constructor 
-	public CDAnalysis()
+	public CDAnalysis(int nChannelN)
 	{
 		ptable.setPrecision(5);
 		overlay_ = null;
+		fConKernel = new float[nChannelN][];  
 		//SummaryTable = new TextWindow("Summary", "Frame Number\tNumber of Particles", "123\t123321", 450, 300);
 		//SummaryTable.setColumnHeadings("Frame Number\tNumber of Particles");
 		//SummaryTable.append();
@@ -74,10 +74,10 @@ public class CDAnalysis {
 		ByteProcessor dubyteWS = null; 
 		MaximumFinder maxF = new MaximumFinder(); 
 		
-		if(fdg.bTwoChannels)
+		//if(fdg.bTwoChannels)
 			chIndex = nImagePos[0]-1;
-		else
-			chIndex = 0;
+		//else
+		//	chIndex = 0;
 		
 		dupip = (FloatProcessor) ip.duplicate().convertToFloat();
 		
@@ -86,10 +86,10 @@ public class CDAnalysis {
 		SMLblur1Direction(dupip, fdg.dPSFsigma[chIndex]*0.5, 0.0002, false, 0);
 
 		//convolution with gaussian PSF kernel		
-		if((fdg.bTwoChannels) && nImagePos[0]==2)
-			SMLconvolveFloat(dupip, fConKernelTwo, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
-		else
-			SMLconvolveFloat(dupip, fConKernel, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
+//		if((fdg.bTwoChannels) && nImagePos[0]==2)
+//			SMLconvolveFloat(dupip, fConKernelTwo, fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
+//		else
+			SMLconvolveFloat(dupip, fConKernel[chIndex], fdg.nKernelSize[chIndex], fdg.nKernelSize[chIndex]);
 		
 		
 		//new ImagePlus("convoluted", dupip.duplicate()).show();
@@ -109,7 +109,7 @@ public class CDAnalysis {
 			
 			dubyte.erode();
 		}
-		if(fdg.bSegmentLargeParticles && fdg.bBigParticles)
+		if(fdg.bSegmentLargeParticles[chIndex] && fdg.bBigParticles[chIndex])
 		{
 			dubyteWS= maxF.findMaxima(dupip, fdg.nSensitivity[chIndex]*nNoise[1], MaximumFinder.SEGMENTED, false);
 			dubyte.copyBits(dubyteWS, 0, 0, Blitter.AND);
@@ -138,7 +138,6 @@ public class CDAnalysis {
 		int width = ipBinary.getWidth();
 		int height = ipBinary.getHeight();
 		
-		boolean bBigParticles=fdg.bBigParticles;
 		 
 		int nArea;
 		int chIndex;
@@ -163,18 +162,11 @@ public class CDAnalysis {
 		int [][] label = new int[width][height] ;
 		
 		
-		if(fdg.bTwoChannels)
-			chIndex = nImagePos[0]-1;
-		else
-			chIndex = 0;
+		chIndex = nImagePos[0]-1;
+
+		boolean bBigParticles=fdg.bBigParticles[chIndex];
+
 		
-		
-		//int [] nMaxPos;
-		//int RoiRad = (int) Math.ceil(2.5*fdg.dPSFsigma[chIndex]);
-		//int RoiRad = (int) Math.ceil(3*fdg.dPSFsigma[chIndex]);
-		//int nMaxInd, nMaxIntensity;
-		//double [] nLocalThreshold;
-		//int nListLength;
 					
 		
 		for (int r = 1; r < width-1; r++)
@@ -468,10 +460,7 @@ public class CDAnalysis {
 		//kernel matrix
 		fKernel = new float [fdg.nKernelSize[nChannel]][fdg.nKernelSize[nChannel]];
 		//kernel string 
-		if(nChannel==0)
-			fConKernel = new float [fdg.nKernelSize[nChannel]*fdg.nKernelSize[nChannel]];
-		else 
-			fConKernelTwo = new float [fdg.nKernelSize[nChannel]*fdg.nKernelSize[nChannel]];
+		fConKernel[nChannel] = new float [fdg.nKernelSize[nChannel]*fdg.nKernelSize[nChannel]];
 		//Gaussian spot region
 		if (3*fdg.dPSFsigma[nChannel] > nCenter)
 			fSpot = nCenter;
@@ -517,17 +506,11 @@ public class CDAnalysis {
 			{
 				fDist = (i-nCenter)*(i-nCenter) + (j-nCenter)*(j-nCenter);
 				//normalization
-				if(nChannel==0)
-					fConKernel[i+j*(fdg.nKernelSize[nChannel])] = fKernel[i][j] / GaussSum;
-				else
-					fConKernelTwo[i+j*(fdg.nKernelSize[nChannel])] = fKernel[i][j] / GaussSum;
+				fConKernel[nChannel][i+j*(fdg.nKernelSize[nChannel])] = fKernel[i][j] / GaussSum;
 				if (fDist > fSpotSqr)
 				{
 					//background subtraction
-					if(nChannel==0)
-						fConKernel[i+j*(fdg.nKernelSize[nChannel])] -=fDivFactor;
-					else
-						fConKernelTwo[i+j*(fdg.nKernelSize[nChannel])] -=fDivFactor;
+					fConKernel[nChannel][i+j*(fdg.nKernelSize[nChannel])] -=fDivFactor;
 				}
 				
 			}		

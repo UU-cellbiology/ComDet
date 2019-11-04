@@ -17,7 +17,11 @@ import ij.process.ImageProcessor;
 
 public class CDDialog implements DialogListener{
 
+	
+	/** current active ImagePlus **/
 	public ImagePlus imp;
+	
+	
 	CDAnalysis cd;
 	/**image width of original image**/
 	int nWidth;  
@@ -25,6 +29,10 @@ public class CDDialog implements DialogListener{
 	int nHeight; 
 	/**number of slices**/
 	int nSlices; 
+	
+	/** original overlay **/
+	Overlay savedOverlay;
+	
 	
 	//finding particles
 	/**standard deviation of PSF approximated by Gaussian**/
@@ -39,21 +47,26 @@ public class CDDialog implements DialogListener{
 	int [] nAreaMax; 
 	/**sensitivity of detection for each channel **/
 	float [] nSensitivity;
+	/** whether to include big particles in the detection (for each channel) **/
+	boolean [] bBigParticles;
+	/** Whether to segment large particles (for each channel) **/
+	boolean [] bSegmentLargeParticles;	
 	
 	/** number of channels **/
 	public int ChNumber;
+	/** current channel in processing (starting from 1!) **/
+	int iCh;
 	
 	/** main dialog window **/
 	GenericDialog fpDial;
 	
-	boolean bTwoChannels;
-	/** whether to include big particles in the detection**/
-	boolean bBigParticles;
+	boolean bMultiChannelDetection;
+
 	
 	
 	/** dialog options**/
 	String [] sROIManagerOneCh;
-	String [] sROIManagerTwoCh;
+	String [] sROIManagerMultiCh;
 	
 	/** Flag determing whether to add detections to ROI Manager
 	 * 0 - do not add
@@ -61,9 +74,7 @@ public class CDDialog implements DialogListener{
 	 * 2 - add only colocalized particles
 	 * **/
 	int nRoiManagerAdd;
-	/** Whether to segment large particles
-	 * **/
-	boolean bSegmentLargeParticles=false;
+
 	
 	//boolean bPreview;
 
@@ -71,20 +82,35 @@ public class CDDialog implements DialogListener{
 	//colocalization analysis parameters
 	boolean bColocalization;
 	double dColocDistance;
-	boolean bPlotBothChannels;
+	boolean bPlotMultiChannels;
 	
-	//default constructor 
+	/** default constructor **/ 
 	public CDDialog()
 	{
-		dPSFsigma = new double[2];
-		nKernelSize = new int[2];
-		nAreaCut = new int[2];
-		nAreaMax =  new int[2];
-		nSensitivity = new float[2];
+		//dPSFsigma = new double[2];
+		//nKernelSize = new int[2];
+		//nAreaCut = new int[2];
+		//nAreaMax =  new int[2];
+		//nSensitivity = new float[2];
 		sROIManagerOneCh = new String [] {
 				"Nothing", "All detections"};
-		sROIManagerTwoCh = new String [] {
+		sROIManagerMultiCh = new String [] {
 				"Nothing", "All detections","Only colocalized particles"};
+		
+	}
+	/** function initializing dialog for particles detection,
+	 * reads parameters of current image (or Stack/HyperStack, etc) **/
+	public void initImage(ImagePlus imp_in, int [] imageinfo_in)
+	{
+		imp=imp_in;
+		ChNumber=imageinfo_in[2];
+		dPSFsigma = new double[ChNumber];
+		nKernelSize = new int[ChNumber];
+		nAreaCut = new int[ChNumber];
+		nAreaMax =  new int[ChNumber];
+		nSensitivity = new float[ChNumber];
+		bBigParticles = new boolean[ChNumber];
+		bSegmentLargeParticles = new boolean[ChNumber];	
 		
 	}
 
@@ -92,9 +118,6 @@ public class CDDialog implements DialogListener{
 	public boolean findParticles() {
 		
 		String nCurrentVersion;
-
-		fpDial = new GenericDialog("Detect Particles");
-		
 		
 		//check if it is new version
 		// if yes, display one time message
@@ -107,60 +130,71 @@ public class CDDialog implements DialogListener{
 			Prefs.set("ComDet.PluginVersion",ComDetConstants.ComDetVersion);
 		}
 		
-		//fpDial.addChoice("Particle detection method:", DetectOptions, Prefs.get("ComDet.DetectMethod", "Round shape"));
-		fpDial.addMessage("Detection parameters:\n");
-		fpDial.addCheckbox("Include larger particles?", Prefs.get("ComDet.bBigParticles", true));		
-		fpDial.addCheckbox("Segment larger particles (slow)?", Prefs.get("ComDet.bSegmentLargeParticles", false));
-		if(ChNumber == 2)
+		//multichannel input, ask user for the parameters
+		if(ChNumber>1)
 		{
-			//fpDial.addChoice("Two channel detection:", TwoChannelOption, Prefs.get("ComDet.TwoChannelOption", "Detect in both channels independently"));
-			fpDial.addMessage("Channel 1:\n");		
+			fpDial = new GenericDialog("Detect Particles");
+			fpDial.addMessage("Multi-channel image is detected as input. \n");
+			fpDial.addCheckbox("Calculate colocalization?", Prefs.get("ComDet.bColocalization", false));
+			fpDial.addMessage("Colocalization analysis parameters:\n");
+			fpDial.addNumericField("Max distance between colocalized spots", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
+			fpDial.addCheckbox("Plot detected particles in all channels?", Prefs.get("ComDet.bPlotMultiChannels", false));
+			fpDial.addChoice("Add to ROI Manager:", sROIManagerMultiCh, Prefs.get("ComDet.sROIManagerMulti", "Nothing"));
+			
+			fpDial.showDialog();
+			if (fpDial.wasCanceled())
+	            return false;
+			bColocalization = fpDial.getNextBoolean();
+			Prefs.set("ComDet.bColocalization", bColocalization);			
+			dColocDistance = fpDial.getNextNumber();
+			Prefs.set("ComDet.dColocDistance", dColocDistance);	
+			bPlotMultiChannels = fpDial.getNextBoolean();
+			Prefs.set("ComDet.bPlotMultiChannels", bPlotMultiChannels);
+			nRoiManagerAdd = fpDial.getNextChoiceIndex();
+			if(!bColocalization && nRoiManagerAdd==2)
+			{
+				nRoiManagerAdd=0;
+				IJ.log("Cannot add colocalized particles to ROI, since colocalization option is unchecked. Nothing will be added.");
+			}
+			Prefs.set("ComDet.sROIManagerMultiCh", sROIManagerMultiCh[nRoiManagerAdd]);
 		}
-			fpDial.addNumericField("ch1a: Approximate particle size", Prefs.get("ComDet.dPSFsigma", 4), 2,5," pixels");
-			fpDial.addNumericField("ch1s: Intensity threshold (in SD):", Prefs.get("ComDet.dSNRT", 3), 2,5, "around (3-20)");
-			//fpDial.addChoice("ch1s: Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.Sensitivity", "Very dim particles (SNR=3)"));
-		if(ChNumber == 2)
-		{
-				fpDial.addMessage("Channel 2:\n");
-				fpDial.addNumericField("ch2a: Approximate particle size", Prefs.get("ComDet.dPSFsigmaTwo", 4), 2, 5," pixels");
-				fpDial.addNumericField("ch2s: Intensity threshold (in SD):", Prefs.get("ComDet.dSNRTTwo", 3), 2,5, "around (3-20)");
-				//fpDial.addChoice("ch2s: Sensitivity of detection:", sSensitivityOptions, Prefs.get("ComDet.SensitivityTwo", "Very dim particles (SNR=3)"));
 
-				fpDial.addMessage("\n\n Colocalization analysis:\n");
-				fpDial.addCheckbox("Calculate colocalization?", Prefs.get("ComDet.bColocalization", false));
-				fpDial.addNumericField("Max distance between colocalized spots", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
-				fpDial.addCheckbox("Plot detected particles in both channels?", Prefs.get("ComDet.bPlotBothChannels", false));
-		}		   
-		if(ChNumber == 1)
-			fpDial.addChoice("Add to ROI Manager:", sROIManagerOneCh, Prefs.get("ComDet.sROIManagerOne", "Nothing"));
-		else
-			fpDial.addChoice("Add to ROI Manager:", sROIManagerTwoCh, Prefs.get("ComDet.sROIManagerTwo", "Nothing"));
-		//fpDial.addCheckbox("Preview", false);
+		savedOverlay=imp.getOverlay();
 		
-		//work around about preview checkbox not showing in composite images (why??)
 		
-		ImagePlus fakeimp=new ImagePlus("quick",new FloatProcessor(1,1));
-		fakeimp.show();
-		fpDial.addPreviewCheckbox(null,"Preview detection..");
-		fakeimp.changes=false;
-		fakeimp.close();
-		fpDial.addDialogListener(this);
-		
-		fpDial.showDialog();
-		if (fpDial.wasCanceled())
+		for (iCh=1;iCh<=ChNumber;iCh++)
 		{
-			imp.setOverlay(new Overlay());
+			String sChN = Integer.toString(iCh);
+			fpDial = new GenericDialog("Detect Particles channel"+sChN);
+			fpDial.addMessage("Detection parameters:\n");
+			fpDial.addCheckbox("ch"+sChN+"i: Include larger particles?", Prefs.get("ComDet.bBigParticles"+sChN, true));	
+			fpDial.addCheckbox("ch"+sChN+"l: Segment larger particles (slow)?", Prefs.get("ComDet.bSegmentLargeParticles"+sChN, false));
+			fpDial.addNumericField("ch"+sChN+"a: Approximate particle size", Prefs.get("ComDet.dPSFsigma"+sChN, 4), 2,5," pixels");
+			fpDial.addNumericField("ch"+sChN+"s: Intensity threshold (in SD):", Prefs.get("ComDet.dSNRT"+sChN, 3), 2,5, "around (3-20)");
+			if(ChNumber == 1)
+				fpDial.addChoice("Add to ROI Manager:", sROIManagerOneCh, Prefs.get("ComDet.sROIManagerOne", "Nothing"));
+
+			ImagePlus fakeimp=new ImagePlus("quick",new FloatProcessor(1,1));
+			fakeimp.show();
+			fpDial.addPreviewCheckbox(null,"Preview detection..");
+			fakeimp.changes=false;
+			fakeimp.close();
+			fpDial.addDialogListener(this);
+
+			fpDial.showDialog();
+
+			imp.setOverlay(savedOverlay);
 			imp.updateAndRepaintWindow();
 			imp.show();
-            return false;
+			
+			if (fpDial.wasCanceled())
+				{return false;}
+
+			setPrefs();
+
 		}
-		 if (!dialogItemChanged(fpDial, null))   //read parameters
-		 {
-			 	//setPrefs();
-	            return false;
-		 }
-		//getValues();
-		setPrefs();
+		
+		
 		
 		return true;
 	}
@@ -169,67 +203,44 @@ public class CDDialog implements DialogListener{
 	public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
 		// TODO Auto-generated method stub
 		
-		CompositeImage twochannels_imp;
+		CompositeImage multichannel_imp;
 		int[] nImagePos;
-		int i;
 		Roi RoiSelected;// = imp.getRoi();
 		ImageProcessor ip;
 		boolean bValuesOk;
 		bValuesOk=getValues();
 		if(!bValuesOk)
 			return false;
+		if(gd.wasOKed())
+		{
+			return true;
+		}
 		if(gd.isPreviewActive())
 		{
-			//two channels
-			if(ChNumber==2)
-			{
 				gd.previewRunning(true);
-				cd = new CDAnalysis();
-				twochannels_imp = (CompositeImage) imp;
-				cd.overlay_=new Overlay();
-				cd.initConvKernel(this,0);
-				cd.initConvKernel(this,1);
+				cd = new CDAnalysis(ChNumber);
+				
+				multichannel_imp=(CompositeImage) imp;
+				multichannel_imp.setC(iCh);
+				cd.colorCh= multichannel_imp.getChannelColor();
+				cd.overlay_= new Overlay();
+				cd.initConvKernel(this,iCh-1);
 				RoiSelected= imp.getRoi();
 				nImagePos = imp.convertIndexToPosition(imp.getSlice());
-				
-				for (i=1;i<3;i++)
-				{
-					twochannels_imp.setC(i);
-					cd.colorCh= twochannels_imp.getChannelColor();
-					nImagePos[0]=i;
-					imp.setPositionWithoutUpdate(nImagePos[0], nImagePos[1],nImagePos[2]);
-					ip = imp.getProcessor().duplicate();
-					cd.detectParticles(ip, this,nImagePos, 1, RoiSelected);
-				}
-				//cd.detectParticles(ip, this,imp.convertIndexToPosition(1), 1, RoiSelected);
-				imp.setOverlay(cd.overlay_);
-				imp.updateAndRepaintWindow();
-				imp.show();
-				gd.previewRunning(false);
-			}
-			// 1 or 3 or more channels
-			else
-			{
-				gd.previewRunning(true);
-				cd = new CDAnalysis();
-				
-				cd.colorCh=Color.yellow;
-				cd.overlay_=new Overlay();
-				cd.initConvKernel(this,0);
-				RoiSelected= imp.getRoi();
+				nImagePos[0]=iCh;
+				imp.setPositionWithoutUpdate(nImagePos[0], nImagePos[1],nImagePos[2]);
 				ip = imp.getProcessor().duplicate();
-				cd.detectParticles(ip, this,imp.convertIndexToPosition(1), 1, RoiSelected);
+				
+				cd.detectParticles(ip, this,nImagePos, 1, RoiSelected);
 				imp.setOverlay(cd.overlay_);
 				imp.updateAndRepaintWindow();
 				imp.show();
 				gd.previewRunning(false);
 				
-			}
-			//IJ.log("preview on!");
 		}
 		else
 		{
-			imp.setOverlay(new Overlay());
+			imp.setOverlay(savedOverlay);
 			imp.updateAndRepaintWindow();
 			imp.show();
 		}
@@ -240,74 +251,38 @@ public class CDDialog implements DialogListener{
 	/** function reads parameters values from the dialog **/
 	public boolean getValues()
 	{
+		int indCh=iCh-1;
 
-		int i,TotCh;
-		bBigParticles = fpDial.getNextBoolean();
-		bSegmentLargeParticles = fpDial.getNextBoolean();
+		bBigParticles[indCh] = fpDial.getNextBoolean();
+		bSegmentLargeParticles[indCh] = fpDial.getNextBoolean();
 
-		dPSFsigma[0] = fpDial.getNextNumber();
-		if(Double.isNaN(dPSFsigma[0]))
+		dPSFsigma[indCh] = fpDial.getNextNumber();
+		if(Double.isNaN(dPSFsigma[indCh]))
 			return false;
 		
-		nSensitivity[0] = (float)fpDial.getNextNumber();
-		if(Double.isNaN(nSensitivity[0]))
+		nSensitivity[indCh] = (float)fpDial.getNextNumber();
+		if(Double.isNaN(nSensitivity[indCh]))
 			return false;
 		
 		
-		if(ChNumber == 2)
-		{
-			dPSFsigma[1] = fpDial.getNextNumber();
-			if(Double.isNaN(dPSFsigma[1]))
-				return false;
-			
-			nSensitivity[1] = (float)fpDial.getNextNumber();
-			if(Double.isNaN(nSensitivity[1]))
-				return false;
-		
-			bColocalization = fpDial.getNextBoolean();
-			
-			dColocDistance = fpDial.getNextNumber();
-			
-			bPlotBothChannels = fpDial.getNextBoolean();
-			
-		}
 		
 		if(ChNumber == 1)
 		{
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
 			
 		}
-		else
-		{
-			nRoiManagerAdd = fpDial.getNextChoiceIndex();
-			if(!bColocalization && nRoiManagerAdd==2)
-			{
-				nRoiManagerAdd=0;
-				IJ.log("Cannot add colocalized particles to ROI, since colocalization option is unchecked. Switching to nothing.");
-			}
-			
-		}
 		//bPreview = fpDial.getNextBoolean();
 		nThreads = 50;
-		TotCh=1;
-		bTwoChannels = false;
-		if(ChNumber == 2)
-		{
-			TotCh=2;
-			bTwoChannels = true;
-		}
-		for(i=0;i<TotCh;i++)
-		{
-			
-			dPSFsigma[i] *= 0.5;
-			nAreaMax[i] = (int) (12.0*dPSFsigma[i]*dPSFsigma[i]);
-			//putting limiting criteria on spot size
-			nAreaCut[i] = (int) (dPSFsigma[i] * dPSFsigma[i]);
-			nKernelSize[i] = (int) Math.ceil(3.0*dPSFsigma[i]);
-			if(nKernelSize[i]%2 == 0)
-				 nKernelSize[i]++;
 
-		}
+			
+		dPSFsigma[indCh] *= 0.5;
+		nAreaMax[indCh] = (int) (12.0*dPSFsigma[indCh]*dPSFsigma[indCh]);
+		//putting limiting criteria on spot size
+		nAreaCut[indCh] = (int) (dPSFsigma[indCh] * dPSFsigma[indCh]);
+		nKernelSize[indCh] = (int) Math.ceil(3.0*dPSFsigma[indCh]);
+		if(nKernelSize[indCh]%2 == 0)
+			 nKernelSize[indCh]++;
+
 		return true;
 		
 	}
@@ -316,24 +291,16 @@ public class CDDialog implements DialogListener{
 	/** function adds parameters values to registry **/
 	public void setPrefs()
 	{
-		Prefs.set("ComDet.bBigParticles", bBigParticles);
-		Prefs.set("ComDet.bSegmentLargeParticles", bSegmentLargeParticles);
+		String sChN = Integer.toString(iCh);
+		Prefs.set("ComDet.bBigParticles"+sChN, bBigParticles[iCh-1]);
+		Prefs.set("ComDet.bSegmentLargeParticles"+sChN, bSegmentLargeParticles[iCh-1]);
 
-		Prefs.set("ComDet.dPSFsigma", dPSFsigma[0]*2.0);
-		Prefs.set("ComDet.dSNRT", nSensitivity[0]);
+		Prefs.set("ComDet.dPSFsigma"+sChN, dPSFsigma[iCh-1]*2.0);
+		Prefs.set("ComDet.dSNRT+sChN", nSensitivity[iCh-1]);
 		
-		if(ChNumber == 2)
-		{
-			Prefs.set("ComDet.dPSFsigmaTwo", dPSFsigma[1]*2.0);
-			Prefs.set("ComDet.dSNRTTwo", nSensitivity[1]);
-			Prefs.set("ComDet.bColocalization", bColocalization);
-			Prefs.set("ComDet.dColocDistance", dColocDistance);
-			Prefs.set("ComDet.bPlotBothChannels", bPlotBothChannels);
-		}
 		if(ChNumber == 1)		
 			Prefs.set("ComDet.sROIManagerOne", sROIManagerOneCh[nRoiManagerAdd]);		
-		else
-			Prefs.set("ComDet.sROIManagerTwo", sROIManagerTwoCh[nRoiManagerAdd]);
+
 		
 		//Prefs.set("ComDet.bPreview", bPreview);
 	}	
