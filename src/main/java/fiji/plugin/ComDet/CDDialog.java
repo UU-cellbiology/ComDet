@@ -51,6 +51,8 @@ public class CDDialog implements DialogListener{
 	boolean [] bBigParticles;
 	/** Whether to segment large particles (for each channel) **/
 	boolean [] bSegmentLargeParticles;	
+	/** ROI of what shape to add 0 = ovals, 1 = rectangles **/
+	int nRoiOption;
 	
 	/** number of channels **/
 	public int ChNumber;
@@ -74,6 +76,8 @@ public class CDDialog implements DialogListener{
 	 * 2 - add only colocalized particles
 	 * **/
 	int nRoiManagerAdd;
+	/** ROIs of what shape to add **/
+	String [] sRoiOptions; 
 
 	
 	//boolean bPreview;
@@ -96,6 +100,7 @@ public class CDDialog implements DialogListener{
 				"Nothing", "All detections"};
 		sROIManagerMultiCh = new String [] {
 				"Nothing", "All detections","Only colocalized particles"};
+		sRoiOptions = new String [] {"Ovals","Rectangles"};
 		
 	}
 	/** function initializing dialog for particles detection,
@@ -118,6 +123,7 @@ public class CDDialog implements DialogListener{
 	public boolean findParticles() {
 		
 		String nCurrentVersion;
+
 		
 		//check if it is new version
 		// if yes, display one time message
@@ -139,6 +145,7 @@ public class CDDialog implements DialogListener{
 			fpDial.addMessage("Colocalization analysis parameters:\n");
 			fpDial.addNumericField("Max distance between colocalized spots", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
 			fpDial.addCheckbox("Plot detected particles in all channels?", Prefs.get("ComDet.bPlotMultiChannels", false));
+			fpDial.addChoice("ROIs shape: ",sRoiOptions, Prefs.get("ComDet.nRoiOption", "Ovals"));
 			fpDial.addChoice("Add to ROI Manager:", sROIManagerMultiCh, Prefs.get("ComDet.sROIManagerMulti", "Nothing"));
 			
 			fpDial.showDialog();
@@ -150,7 +157,12 @@ public class CDDialog implements DialogListener{
 			Prefs.set("ComDet.dColocDistance", dColocDistance);	
 			bPlotMultiChannels = fpDial.getNextBoolean();
 			Prefs.set("ComDet.bPlotMultiChannels", bPlotMultiChannels);
+			nRoiOption = fpDial.getNextChoiceIndex();
+			Prefs.set("ComDet.nRoiOption", sRoiOptions[nRoiOption]);			
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
+			Prefs.set("ComDet.sROIManagerMulti", sROIManagerMultiCh[nRoiManagerAdd]);
+			
+			
 			if(!bColocalization && nRoiManagerAdd==2)
 			{
 				nRoiManagerAdd=0;
@@ -172,7 +184,10 @@ public class CDDialog implements DialogListener{
 			fpDial.addNumericField("ch"+sChN+"a: Approximate particle size", Prefs.get("ComDet.dPSFsigma"+sChN, 4), 2,5," pixels");
 			fpDial.addNumericField("ch"+sChN+"s: Intensity threshold (in SD):", Prefs.get("ComDet.dSNRT"+sChN, 3), 2,5, "around (3-20)");
 			if(ChNumber == 1)
+			{
+				fpDial.addChoice("ROIs shape: ",sRoiOptions, Prefs.get("ComDet.nRoiOption", "Ovals"));
 				fpDial.addChoice("Add to ROI Manager:", sROIManagerOneCh, Prefs.get("ComDet.sROIManagerOne", "Nothing"));
+			}
 
 			ImagePlus fakeimp=new ImagePlus("quick",new FloatProcessor(1,1));
 			fakeimp.show();
@@ -220,9 +235,17 @@ public class CDDialog implements DialogListener{
 				gd.previewRunning(true);
 				cd = new CDAnalysis(ChNumber);
 				
-				multichannel_imp=(CompositeImage) imp;
-				multichannel_imp.setC(iCh);
-				cd.colorCh= multichannel_imp.getChannelColor();
+				if(ChNumber>1)
+				{
+					multichannel_imp=(CompositeImage) imp;
+					multichannel_imp.setC(iCh);
+					cd.colorCh= multichannel_imp.getChannelColor();
+				}
+				else
+				{
+					cd.colorCh=Color.YELLOW;
+				}
+				
 				cd.overlay_= new Overlay();
 				cd.initConvKernel(this,iCh-1);
 				RoiSelected= imp.getRoi();
@@ -268,6 +291,7 @@ public class CDDialog implements DialogListener{
 		
 		if(ChNumber == 1)
 		{
+			nRoiOption = fpDial.getNextChoiceIndex();
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
 			
 		}
@@ -296,11 +320,12 @@ public class CDDialog implements DialogListener{
 		Prefs.set("ComDet.bSegmentLargeParticles"+sChN, bSegmentLargeParticles[iCh-1]);
 
 		Prefs.set("ComDet.dPSFsigma"+sChN, dPSFsigma[iCh-1]*2.0);
-		Prefs.set("ComDet.dSNRT+sChN", nSensitivity[iCh-1]);
+		Prefs.set("ComDet.dSNRT"+sChN, nSensitivity[iCh-1]);
 		
 		if(ChNumber == 1)		
 			Prefs.set("ComDet.sROIManagerOne", sROIManagerOneCh[nRoiManagerAdd]);		
-
+		
+		Prefs.set("ComDet.nRoiOption", sRoiOptions[nRoiOption]);		
 		
 		//Prefs.set("ComDet.bPreview", bPreview);
 	}	

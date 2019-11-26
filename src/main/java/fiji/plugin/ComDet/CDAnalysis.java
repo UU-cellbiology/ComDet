@@ -1,6 +1,7 @@
 package fiji.plugin.ComDet;
 
 import ij.IJ;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.measure.Measurements;
@@ -319,7 +320,12 @@ public class CDAnalysis {
 								 else
 								 {
 									//adding spot to the overlay
-									spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
+									
+									 
+									if(fdg.nRoiOption==0)
+										spotROI = new OvalRoi(xMin,yMin,xMax-xMin,yMax-yMin);
+									else
+										spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
 									spotROI.setStrokeColor(colorCh);									
 									overlay_.add(spotROI);
 								 }
@@ -374,7 +380,10 @@ public class CDAnalysis {
 									 else
 									 {
 										//adding spot to the overlay
-										spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
+										if(fdg.nRoiOption==0)
+											spotROI = new OvalRoi(xMin,yMin,xMax-xMin,yMax-yMin);
+										else
+											spotROI = new Roi(xMin,yMin,xMax-xMin,yMax-yMin);
 										spotROI.setStrokeColor(colorCh);									
 										overlay_.add(spotROI); 
 									 }

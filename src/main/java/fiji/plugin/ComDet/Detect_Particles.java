@@ -11,6 +11,7 @@ import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.measure.ResultsTable;
@@ -311,7 +312,11 @@ public class Detect_Particles implements PlugIn {
 						
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
-				spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+				if(cddlg.nRoiOption==0)
+					spotROI = new OvalRoi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+				else
+					spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+
 				spotROI.setStrokeColor(colorColoc);
 				if(nStackSize==1)
 					spotROI.setPosition(0);
@@ -406,12 +411,25 @@ public class Detect_Particles implements PlugIn {
 					nCurrCombination++;
 					indexCombTable[nCurrCombination][0]=nCurrCh1;
 					indexCombTable[nCurrCombination][1]=nCurrCh2;
-					int dR=(int)Math.sqrt(colorsCh[nCurrCh1].getRed()*colorsCh[nCurrCh1].getRed()+colorsCh[nCurrCh2].getRed()*colorsCh[nCurrCh2].getRed());
-					int dG=(int)Math.sqrt(colorsCh[nCurrCh1].getGreen()*colorsCh[nCurrCh1].getGreen()+colorsCh[nCurrCh2].getGreen()*colorsCh[nCurrCh2].getGreen());
-					int dB=(int)Math.sqrt(colorsCh[nCurrCh1].getBlue()*colorsCh[nCurrCh1].getBlue()+colorsCh[nCurrCh2].getBlue()*colorsCh[nCurrCh2].getBlue());
+					//colorsCh[nCurrCh1].getHSBColor(h, s, b)
+					//colorsCh[nCurrCh1].RGBtoHSB(r, g, b, hsbvals)
+					float[] hsbvals1 = new float [3];
+					float[] hsbvals2 = new float [3];
+					Color.RGBtoHSB(colorsCh[nCurrCh1].getRed(), colorsCh[nCurrCh1].getGreen(), colorsCh[nCurrCh1].getBlue(), hsbvals1);
+					Color.RGBtoHSB(colorsCh[nCurrCh2].getRed(), colorsCh[nCurrCh2].getGreen(), colorsCh[nCurrCh2].getBlue(), hsbvals2);
+					
+					float h, s,b;
+					h=(float)0.5*(hsbvals1[0]+hsbvals2[0]);
+					s=(float)0.5*(hsbvals1[1]+hsbvals2[1]);
+					b=(float)0.5*(hsbvals1[2]+hsbvals2[2]);
+					colorExp = Color.getHSBColor(h,s,b);
+					//colorExp = new Color(colorC.getRed(),colorC.getGreen(),colorC.getBlue());
+					//int dR=(int)Math.sqrt(colorsCh[nCurrCh1].getRed()*colorsCh[nCurrCh1].getRed()+colorsCh[nCurrCh2].getRed()*colorsCh[nCurrCh2].getRed());
+					//int dG=(int)Math.sqrt(colorsCh[nCurrCh1].getGreen()*colorsCh[nCurrCh1].getGreen()+colorsCh[nCurrCh2].getGreen()*colorsCh[nCurrCh2].getGreen());
+					//int dB=(int)Math.sqrt(colorsCh[nCurrCh1].getBlue()*colorsCh[nCurrCh1].getBlue()+colorsCh[nCurrCh2].getBlue()*colorsCh[nCurrCh2].getBlue());
 
 					//colorExp=colorsCh[nCurrCh1]+colorsCh[nCurrCh2];
-					colorExp = new Color(dR,dG,dB);
+					//colorExp = new Color(dR,dG,dB);
 					
 					//filling up arrays with current frame
 					for(nFrame=1; nFrame<=imageinfo[4]; nFrame++)
@@ -513,7 +531,10 @@ public class Detect_Particles implements PlugIn {
 									
 									
 									//first channel
-									spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
+									if(cddlg.nRoiOption==0)
+										spotROI = new OvalRoi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
+									else
+										spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
 									
 									//spotROI.setStrokeColor(colorColoc);
 									spotROI.setStrokeColor(colorExp);
@@ -531,7 +552,10 @@ public class Detect_Particles implements PlugIn {
 									SpotsPositions.add(spotROI);
 									
 									//second channel
-									spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
+									if(cddlg.nRoiOption==0)
+										spotROI = new OvalRoi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
+									else
+										spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
 									
 									//spotROI.setStrokeColor(colorColoc);
 									spotROI.setStrokeColor(colorExp);
@@ -570,8 +594,10 @@ public class Detect_Particles implements PlugIn {
 				{
 					if( !cddlg.bPlotMultiChannels)
 					{
-						
-						spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+						if(cddlg.nRoiOption==0)
+							spotROI = new OvalRoi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+						else	
+							spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
 						
 						spotROI.setStrokeColor(colorsCh[(int)(channel[nCount])-1]);
 
@@ -589,8 +615,11 @@ public class Detect_Particles implements PlugIn {
 					{
 						for (int k=1;k<=cddlg.ChNumber;k++)
 						{
+							if(cddlg.nRoiOption==0)
 
-							spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+								spotROI = new OvalRoi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
+							else
+								spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
 							
 							spotROI.setStrokeColor(colorsCh[(int)(channel[nCount])-1]);
 							spotROI.setName(String.format("d%d_sl%d_fr%d_ch%d_c0_%d", nCount+1,(int)slices[nCount],(int)frames[nCount],(int)channel[nCount],k));
@@ -641,12 +670,16 @@ public class Detect_Particles implements PlugIn {
 					nCurrCh1 = indexCombTable[nCurrCombination][0];
 					nCurrCh2 = indexCombTable[nCurrCombination][1];
 					String sCombination="_ch"+Integer.toString(nCurrCh1+1)+"&ch"+Integer.toString(nCurrCh2+1);
-					int dR=(int)Math.sqrt(colorsCh[nCurrCh1].getRed()*colorsCh[nCurrCh1].getRed()+colorsCh[nCurrCh2].getRed()*colorsCh[nCurrCh2].getRed());
-					int dG=(int)Math.sqrt(colorsCh[nCurrCh1].getGreen()*colorsCh[nCurrCh1].getGreen()+colorsCh[nCurrCh2].getGreen()*colorsCh[nCurrCh2].getGreen());
-					int dB=(int)Math.sqrt(colorsCh[nCurrCh1].getBlue()*colorsCh[nCurrCh1].getBlue()+colorsCh[nCurrCh2].getBlue()*colorsCh[nCurrCh2].getBlue());
-
-					//colorExp=colorsCh[nCurrCh1]+colorsCh[nCurrCh2];
-					colorExp = new Color(dR,dG,dB);
+					float[] hsbvals1 = new float [3];
+					float[] hsbvals2 = new float [3];
+					Color.RGBtoHSB(colorsCh[nCurrCh1].getRed(), colorsCh[nCurrCh1].getGreen(), colorsCh[nCurrCh1].getBlue(), hsbvals1);
+					Color.RGBtoHSB(colorsCh[nCurrCh2].getRed(), colorsCh[nCurrCh2].getGreen(), colorsCh[nCurrCh2].getBlue(), hsbvals2);
+					
+					float h, s,b;
+					h=(float)0.5*(hsbvals1[0]+hsbvals2[0]);
+					s=(float)0.5*(hsbvals1[1]+hsbvals2[1]);
+					b=(float)0.5*(hsbvals1[2]+hsbvals2[2]);
+					colorExp = Color.getHSBColor(h,s,b);
 					
 					if(colocalizations[nCurrCombination][nCount])
 					{
@@ -657,7 +690,11 @@ public class Detect_Particles implements PlugIn {
 						//check if we already added ROI to ROI manager
 						if(!nColocROIadded[nCurrCombination][nCount] && cddlg.nRoiManagerAdd>0)
 						{
-							spotROI = new Roi(dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][1],dColocRoiXYArray[nCurrCombination][nCount][2]-dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][3]-dColocRoiXYArray[nCurrCombination][nCount][1]);
+							if(cddlg.nRoiOption==0)
+								spotROI = new OvalRoi(dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][1],dColocRoiXYArray[nCurrCombination][nCount][2]-dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][3]-dColocRoiXYArray[nCurrCombination][nCount][1]);
+							else
+								spotROI = new Roi(dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][1],dColocRoiXYArray[nCurrCombination][nCount][2]-dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][3]-dColocRoiXYArray[nCurrCombination][nCount][1]);
+
 							//spotROI.setStrokeColor(colorColoc);
 							spotROI.setStrokeColor(colorExp);
 							spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
