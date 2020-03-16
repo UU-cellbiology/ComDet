@@ -2,7 +2,6 @@ package fiji.plugin.ComDet;
 
 
 import java.awt.Color;
-import java.awt.Frame;
 import java.util.ArrayList;
 
 import fiji.plugin.ComDet.CDAnalysis;
@@ -10,7 +9,6 @@ import fiji.plugin.ComDet.CDDialog;
 import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
-import ij.WindowManager;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
@@ -18,7 +16,6 @@ import ij.measure.ResultsTable;
 import ij.plugin.PlugIn;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
-import ij.text.TextPanel;
 import ij.text.TextWindow;
 
 public class Detect_Particles implements PlugIn {
@@ -790,7 +787,25 @@ public class Detect_Particles implements PlugIn {
 						roi_manager.addRoi(spotROI);
 					}
 				}
-				SpotsPositions.add(spotROI);
+				if(cddlg.bPlotMultiChannels)
+				{
+					for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+					{
+						if(cddlg.nRoiOption==0)
+							spotROI = new OvalRoi(xminROI,yminROI,xmaxROI-xminROI,ymaxROI-yminROI);
+						else
+							spotROI = new Roi(xminROI,yminROI,xmaxROI-xminROI,ymaxROI-yminROI);
+						spotROI.setStrokeColor(colorExp);
+						spotROI.setPosition(nCurrCh1+1,(int)slices[nCount],(int)frames[nCount]);
+						SpotsPositions.add(spotROI);
+					}
+					
+				}
+				else
+				{
+					SpotsPositions.add(spotROI);
+				}
+				
 			}
 		}//if(!cddlg.bColocalization)
 	
