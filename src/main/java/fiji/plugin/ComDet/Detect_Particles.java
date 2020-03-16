@@ -328,7 +328,7 @@ public class Detect_Particles implements PlugIn {
 					else
 						spotROI.setPosition((int)absframe[nCount]);
 				}
-				spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
+				spotROI.setName(String.format("ind%d_ch%d_sl%d_fr%d", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
 				SpotsPositions.add(spotROI);	
 				if(cddlg.nRoiManagerAdd>0)
 					roi_manager.addRoi(spotROI);
