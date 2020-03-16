@@ -287,26 +287,27 @@ public class Detect_Particles implements PlugIn {
 		
 
 		//absolute total number
-		absframe = cd.ptable.getColumnAsDoubles(0);
+		absframe = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_absFrame);
 		//coordinates
-		x   = cd.ptable.getColumnAsDoubles(1);		
-		y   = cd.ptable.getColumnAsDoubles(2);
+		x   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_X);		
+		y   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_Y);
 		//channel
-		channel   = cd.ptable.getColumnAsDoubles(3);
+		channel   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_Channel);
 		//slice
-		slices   = cd.ptable.getColumnAsDoubles(4);
+		slices   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_Slice);
 		//frame number
-		frames   = cd.ptable.getColumnAsDoubles(5);
+		frames   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_Frame);
 		
 		//box around detected particle
-		xmin   = cd.ptable.getColumnAsDoubles(6);		
-		ymin   = cd.ptable.getColumnAsDoubles(7);
-		xmax   = cd.ptable.getColumnAsDoubles(8);		
-		ymax   = cd.ptable.getColumnAsDoubles(9);
-		dInt   = cd.ptable.getColumnAsDoubles(11);
+		xmin   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_xMin);		
+		ymin   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_yMin);
+		xmax   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_xMax);		
+		ymax   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_yMax);
+		dInt   = cd.ptable.getColumnAsDoubles(ComDetConstants.Col_dInt);
 		
 		nPatNumber = x.length;
 		
+		//no colocalization, let's just add detected particles
 		if(!cddlg.bColocalization)
 		{
 						
@@ -318,7 +319,7 @@ public class Detect_Particles implements PlugIn {
 					spotROI = new Roi(xmin[nCount],ymin[nCount],xmax[nCount]-xmin[nCount],ymax[nCount]-ymin[nCount]);
 
 				spotROI.setStrokeColor(colorColoc);
-				if(nStackSize==1)
+				if(nStackSize==1 && imageinfo[2]==1)
 					spotROI.setPosition(0);
 				else
 				{
@@ -337,12 +338,11 @@ public class Detect_Particles implements PlugIn {
 				
 			}
 		}
-		else
 		//analyzing colocalization
+		else		
 		{
-			//total number of colocalization combinations
-			
-			nCombinationsN= cddlg.ChNumber*(cddlg.ChNumber-1)/2;
+			//total number of colocalization combinations			
+			nCombinationsN = cddlg.ChNumber*(cddlg.ChNumber-1)/2;
 			
 			int nCurrCombination;
 			
@@ -381,7 +381,7 @@ public class Detect_Particles implements PlugIn {
 			ArrayList<double[]> spotsCh1 = new ArrayList<double[]>();
 			ArrayList<double[]> spotsCh2 = new ArrayList<double[]>();
 			
-			double[] spotsChFolInt;
+			//double[] spotsChFolInt;
 
 			
 			colocalizations = new boolean [nCombinationsN][nPatNumber];
@@ -405,15 +405,16 @@ public class Detect_Particles implements PlugIn {
 			}
 			indexCombTable = new int [nCombinationsN][2];
 			nCurrCombination=-1;
+			//colocalizing each channel with each channel
 			for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber-1;nCurrCh1++)
 				for(nCurrCh2=nCurrCh1+1;nCurrCh2<cddlg.ChNumber;nCurrCh2++)
 				{
 					nCurrCombination++;
 					indexCombTable[nCurrCombination][0]=nCurrCh1;
 					indexCombTable[nCurrCombination][1]=nCurrCh2;
-					//colorsCh[nCurrCh1].getHSBColor(h, s, b)
-					//colorsCh[nCurrCh1].RGBtoHSB(r, g, b, hsbvals)
-					float[] hsbvals1 = new float [3];
+
+					//calculating blend of two channels LUT prime colors in HSB space
+					/*float[] hsbvals1 = new float [3];
 					float[] hsbvals2 = new float [3];
 					Color.RGBtoHSB(colorsCh[nCurrCh1].getRed(), colorsCh[nCurrCh1].getGreen(), colorsCh[nCurrCh1].getBlue(), hsbvals1);
 					Color.RGBtoHSB(colorsCh[nCurrCh2].getRed(), colorsCh[nCurrCh2].getGreen(), colorsCh[nCurrCh2].getBlue(), hsbvals2);
@@ -423,15 +424,9 @@ public class Detect_Particles implements PlugIn {
 					s=(float)0.5*(hsbvals1[1]+hsbvals2[1]);
 					b=(float)0.5*(hsbvals1[2]+hsbvals2[2]);
 					colorExp = Color.getHSBColor(h,s,b);
-					//colorExp = new Color(colorC.getRed(),colorC.getGreen(),colorC.getBlue());
-					//int dR=(int)Math.sqrt(colorsCh[nCurrCh1].getRed()*colorsCh[nCurrCh1].getRed()+colorsCh[nCurrCh2].getRed()*colorsCh[nCurrCh2].getRed());
-					//int dG=(int)Math.sqrt(colorsCh[nCurrCh1].getGreen()*colorsCh[nCurrCh1].getGreen()+colorsCh[nCurrCh2].getGreen()*colorsCh[nCurrCh2].getGreen());
-					//int dB=(int)Math.sqrt(colorsCh[nCurrCh1].getBlue()*colorsCh[nCurrCh1].getBlue()+colorsCh[nCurrCh2].getBlue()*colorsCh[nCurrCh2].getBlue());
 
-					//colorExp=colorsCh[nCurrCh1]+colorsCh[nCurrCh2];
-					//colorExp = new Color(dR,dG,dB);
-					
-					//filling up arrays with current frame
+					*/
+					//filling up arrays with detections from current image (slice, frame)
 					for(nFrame=1; nFrame<=imageinfo[4]; nFrame++)
 					{
 						for(nSlice=1; nSlice<=imageinfo[3]; nSlice++)
@@ -461,12 +456,12 @@ public class Detect_Particles implements PlugIn {
 							nColocCount = 0;
 							//let's compare each particle against each					
 							for(i=0;i<spotsCh1.size();i++)
-							{
-								//bOverlap = false;
+							{								
 								nCandidate = -1;
 								dDistanceCand = 2.0*dThreshold;
 								dIntermediate1 = spotsCh1.get(i);
 								
+								//finding minimal distance below the threshold
 								for(j=0;j<spotsCh2.size();j++)
 								{
 									if(spotsCh2.get(j)[3]==0)
@@ -492,15 +487,13 @@ public class Detect_Particles implements PlugIn {
 									dIntermediate2[3] = 1;
 									dIntermediate1[3] = 1;
 									spotsCh2.set(nCandidate,dIntermediate2);
-									//average x, y coordinames
+									//average x, y coordinates
 									dIntermediate2[0] = 0.5*(dIntermediate2[0]+dIntermediate1[0]);
 									dIntermediate2[1] = 0.5*(dIntermediate2[1]+dIntermediate1[1]);
 									//mark as colocalized
 									colocalizations[nCurrCombination][(int) dIntermediate2[2]]=true;
 									colocalizations[nCurrCombination][(int) dIntermediate1[2]]=true;
-									//calculate ratio
-									//colocIntRatio[(int) dIntermediate1[2]]=dIntermediate1[8]/dIntermediate2[8];
-									//colocIntRatio[(int) dIntermediate2[2]]=dIntermediate2[8]/dIntermediate1[8];
+
 									//adjust roi as average
 									double xminav=Math.min(dIntermediate1[4],dIntermediate2[4]);
 									double xmaxav=Math.max(dIntermediate1[5],dIntermediate2[5]);
@@ -529,7 +522,7 @@ public class Detect_Particles implements PlugIn {
 									dColocRoiXYArray[nCurrCombination][(int)dIntermediate1[2]][2]=xmaxav;
 									dColocRoiXYArray[nCurrCombination][(int)dIntermediate1[2]][3]=ymaxav;
 									
-									
+									/*
 									//first channel
 									if(cddlg.nRoiOption==0)
 										spotROI = new OvalRoi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
@@ -557,11 +550,10 @@ public class Detect_Particles implements PlugIn {
 									else
 										spotROI = new Roi(xminav,yminav,xmaxav-xminav,ymaxav-yminav);
 									
-									//spotROI.setStrokeColor(colorColoc);
 									spotROI.setStrokeColor(colorExp);
 									spotROI.setPosition(nCurrCh2+1,nSlice,nFrame);
 									SpotsPositions.add(spotROI);
-									
+									*/
 									nColocCount++;
 									
 								}
@@ -580,9 +572,10 @@ public class Detect_Particles implements PlugIn {
 					}//for(nFrame=1
 				
 				}//end of pairwise colocalization analysis
+				//here all channels combinations are done
 
 			//drawing the rest
-			for(nCount = 0; nCount<nPatNumber; nCount++)
+			/*for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
 				boolean bPatColocalizedOnce = false;
 				
@@ -637,40 +630,45 @@ public class Detect_Particles implements PlugIn {
 						
 					}
 				}				
-			}
+			}*/
 			
 			cd.ptable.deleteColumn("IntegratedInt");
 			// make new columns
 			for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+			{
 				cd.ptable.setValue("IntegrIntCh"+Integer.toString(nCurrCh1+1), 0,0);
-			for(nCurrCombination=0;nCurrCombination<nCombinationsN;nCurrCombination++)
-			{
-				nCurrCh1 = indexCombTable[nCurrCombination][0];
-				nCurrCh2 = indexCombTable[nCurrCombination][1];
-				String sCombination="_ch"+Integer.toString(nCurrCh1+1)+"&ch"+Integer.toString(nCurrCh2+1);
-				cd.ptable.setValue("Colocalized"+sCombination, 0,0);
-
 			}
-			for(nCurrCombination=0;nCurrCombination<nCombinationsN;nCurrCombination++)
-			{
-				nCurrCh1 = indexCombTable[nCurrCombination][0];
-				nCurrCh2 = indexCombTable[nCurrCombination][1];
-				String sCombination="_ch"+Integer.toString(nCurrCh1+1)+"&ch"+Integer.toString(nCurrCh2+1);
-				cd.ptable.setValue("ColocIndex"+sCombination, 0,0);
 
+			for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+			{
+				cd.ptable.setValue("ColocCh"+Integer.toString(nCurrCh1+1), 0,0);
+			}
+			for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+			{
+				cd.ptable.setValue("ColocIndCh"+Integer.toString(nCurrCh1+1), 0,0);
 			}
 			
 			
 			
-			//adding info about colocalization to Results table
+			
+			//adding info about colocalization to Results table		
 			for(nCount = 0; nCount<nPatNumber; nCount++)
 			{
+				int nChPresense[] = new int[cddlg.ChNumber];
+				nChPresense[(int)(channel[nCount]-1)]=1;
+				double xminROI = xmin[nCount];
+				double yminROI = ymin[nCount];
+				double xmaxROI = xmax[nCount];
+				double ymaxROI = ymax[nCount];
+				cd.ptable.setValue("ColocCh"+Integer.toString((int)channel[nCount]), nCount,1);
+				cd.ptable.setValue("ColocIndCh"+Integer.toString((int)channel[nCount]), nCount,Integer.toString(nCount+1));
+				
 				for(nCurrCombination=0;nCurrCombination<nCombinationsN;nCurrCombination++)
 				{
 					nCurrCh1 = indexCombTable[nCurrCombination][0];
 					nCurrCh2 = indexCombTable[nCurrCombination][1];
-					String sCombination="_ch"+Integer.toString(nCurrCh1+1)+"&ch"+Integer.toString(nCurrCh2+1);
-					float[] hsbvals1 = new float [3];
+					
+					/*float[] hsbvals1 = new float [3];
 					float[] hsbvals2 = new float [3];
 					Color.RGBtoHSB(colorsCh[nCurrCh1].getRed(), colorsCh[nCurrCh1].getGreen(), colorsCh[nCurrCh1].getBlue(), hsbvals1);
 					Color.RGBtoHSB(colorsCh[nCurrCh2].getRed(), colorsCh[nCurrCh2].getGreen(), colorsCh[nCurrCh2].getBlue(), hsbvals2);
@@ -679,16 +677,24 @@ public class Detect_Particles implements PlugIn {
 					h=(float)0.5*(hsbvals1[0]+hsbvals2[0]);
 					s=(float)0.5*(hsbvals1[1]+hsbvals2[1]);
 					b=(float)0.5*(hsbvals1[2]+hsbvals2[2]);
-					colorExp = Color.getHSBColor(h,s,b);
+					colorExp = Color.getHSBColor(h,s,b);*/
 					
 					if(colocalizations[nCurrCombination][nCount])
 					{
-						
-						cd.ptable.setValue("Colocalized"+sCombination, nCount,1);
-						//cd.ptable.setValue("IntensityRatio", nCount,colocIntRatio[nCount]);
-						cd.ptable.setValue("ColocIndex"+sCombination, nCount,nColocFriend[nCurrCombination][nCount]);
+						cd.ptable.setValue("ColocCh"+Integer.toString(nCurrCh1+1), nCount,1);
+						cd.ptable.setValue("ColocCh"+Integer.toString(nCurrCh2+1), nCount,1);
+						if((int)channel[nCount] == nCurrCh1+1)
+						{
+							nChPresense[nCurrCh2]=1;
+							cd.ptable.setValue("ColocIndCh"+Integer.toString(nCurrCh2+1),nCount,nColocFriend[nCurrCombination][nCount]);
+						}
+						else
+						{
+							nChPresense[nCurrCh1]=1;
+							cd.ptable.setValue("ColocIndCh"+Integer.toString(nCurrCh1+1),nCount,nColocFriend[nCurrCombination][nCount]);
+						}
 						//check if we already added ROI to ROI manager
-						if(!nColocROIadded[nCurrCombination][nCount] && cddlg.nRoiManagerAdd>0)
+						/*if(!nColocROIadded[nCurrCombination][nCount] && cddlg.nRoiManagerAdd>0)
 						{
 							if(cddlg.nRoiOption==0)
 								spotROI = new OvalRoi(dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][1],dColocRoiXYArray[nCurrCombination][nCount][2]-dColocRoiXYArray[nCurrCombination][nCount][0],dColocRoiXYArray[nCurrCombination][nCount][3]-dColocRoiXYArray[nCurrCombination][nCount][1]);
@@ -701,22 +707,90 @@ public class Detect_Particles implements PlugIn {
 							spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
 							imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
 							roi_manager.addRoi(spotROI);
-						}
-						cd.ptable.setValue("xMin", nCount, dColocRoiXYArray[nCurrCombination][nCount][0]);
-						cd.ptable.setValue("yMin", nCount, dColocRoiXYArray[nCurrCombination][nCount][1]);
-						cd.ptable.setValue("xMax", nCount, dColocRoiXYArray[nCurrCombination][nCount][2]);
-						cd.ptable.setValue("yMax", nCount, dColocRoiXYArray[nCurrCombination][nCount][3]);
-					}
-					else
-					{
-						//cd.ptable.deleteColumn(column);
-						cd.ptable.setValue("Colocalized"+sCombination, nCount,0);
-						//cd.ptable.setValue("IntensityRatio", nCount,0);
-						cd.ptable.setValue("ColocIndex"+sCombination, nCount,0);
+						}*/
+						if(xminROI>dColocRoiXYArray[nCurrCombination][nCount][0])
+							xminROI=dColocRoiXYArray[nCurrCombination][nCount][0];
+						if(yminROI>dColocRoiXYArray[nCurrCombination][nCount][1])
+							yminROI=dColocRoiXYArray[nCurrCombination][nCount][1];
+						if(xmaxROI<dColocRoiXYArray[nCurrCombination][nCount][2])
+							xmaxROI=dColocRoiXYArray[nCurrCombination][nCount][2];
+						if(ymaxROI<dColocRoiXYArray[nCurrCombination][nCount][3])
+							ymaxROI=dColocRoiXYArray[nCurrCombination][nCount][3];
+
 					}
 					cd.ptable.setValue("IntegrIntCh"+Integer.toString(nCurrCh1+1), nCount,dIntMulti[nCurrCh1][nCount]);
 					cd.ptable.setValue("IntegrIntCh"+Integer.toString(nCurrCh2+1), nCount,dIntMulti[nCurrCh2][nCount]);
 				}
+				cd.ptable.setValue("xMin", nCount, xminROI);
+				cd.ptable.setValue("yMin", nCount, yminROI);
+				cd.ptable.setValue("xMax", nCount, xmaxROI);
+				cd.ptable.setValue("yMax", nCount, ymaxROI);
+				cd.ptable.setValue("Index", nCount,nCount+1);
+				
+				//add ROI to the image
+				//determine a color MIXING OPTION 1 (does not work that well)
+				/*
+				float[] hsbvals1 = new float [3];
+				float[] hsbvals2 = new float [3];
+				float nChCount=0;
+				for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+				{
+					if (nChPresense[nCurrCh1]>0)
+					{
+						Color.RGBtoHSB(colorsCh[nCurrCh1].getRed(), colorsCh[nCurrCh1].getGreen(), colorsCh[nCurrCh1].getBlue(), hsbvals2);
+						hsbvals1[0]+=hsbvals2[0];
+						hsbvals1[1]+=hsbvals2[1];
+						hsbvals1[2]+=hsbvals2[2];
+						nChCount++;
+					}					
+				}
+				float h, s,b;
+				h=hsbvals1[0]/nChCount;
+				s=hsbvals1[1]/nChCount;
+				b=hsbvals1[2]/nChCount;
+				colorExp = Color.getHSBColor(h,s,b);
+				*/
+				//determine a color MIXING OPTION 2 (does not work that well,
+				// but at least corresponds to the ImageJ composite view)
+				
+				int colTot[] = new int[3];
+				int nColocN=0;
+				
+				for(nCurrCh1=0;nCurrCh1<cddlg.ChNumber;nCurrCh1++)
+				{
+					if (nChPresense[nCurrCh1]>0)
+					{
+						colTot[0]+=colorsCh[nCurrCh1].getRed();
+						colTot[1]+=colorsCh[nCurrCh1].getGreen();
+						colTot[2]+=colorsCh[nCurrCh1].getBlue();
+						nColocN++;
+					}					
+				}
+				for(nCurrCh1=0;nCurrCh1<3;nCurrCh1++)
+					if(colTot[nCurrCh1]>255)
+						colTot[nCurrCh1]=255;
+				colorExp = new Color(colTot[0],colTot[1],colTot[2]);
+				
+				
+				
+				if(cddlg.nRoiOption==0)
+					spotROI = new OvalRoi(xminROI,yminROI,xmaxROI-xminROI,ymaxROI-yminROI);
+				else
+					spotROI = new Roi(xminROI,yminROI,xmaxROI-xminROI,ymaxROI-yminROI);
+				spotROI.setStrokeColor(colorExp);
+				spotROI.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+				//spotROI.setName(String.format("d%d_ch%d_sl%d_fr%d_c1", nCount+1,(int)channel[nCount],(int)slices[nCount],(int)frames[nCount]));
+				
+				if(cddlg.nRoiManagerAdd>0)
+				{
+					if( !(cddlg.nRoiManagerAdd==2 && nColocN ==1) )
+					{						
+						spotROI.setName(String.format("ind%d_sl%d_fr%d_ch%d", nCount+1,(int)slices[nCount],(int)frames[nCount],(int)channel[nCount]));
+						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+						roi_manager.addRoi(spotROI);
+					}
+				}
+				SpotsPositions.add(spotROI);
 			}
 		}//if(!cddlg.bColocalization)
 	
