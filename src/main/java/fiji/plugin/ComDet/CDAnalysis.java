@@ -1,6 +1,7 @@
 package fiji.plugin.ComDet;
 
 import ij.IJ;
+import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
@@ -696,6 +697,7 @@ public class CDAnalysis {
 					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
 					nHistSize = imgstat.histogram.length;											
 					nPeakPos = imgstat.mode;
+					/*
 					//nMaxCount = imgstat.maxCount;
 					//remove peak value
 					nHistgr = new int [nHistSize-1];
@@ -720,6 +722,31 @@ public class CDAnalysis {
 					}
 					nPeakPos=nPeakNew;
 					nHistSize = nHistSize-1;
+					*/
+					
+					nHistgr = new int [nHistSize];
+					nPeakNew=0; nMaxCount=0;
+					for(k=0;k<nPeakPos;k++)
+					{
+						nHistgr[k]=imgstat.histogram[k];
+						if(nHistgr[k]>nMaxCount)
+						{
+							nMaxCount = nHistgr[k];
+							nPeakNew = k;
+						}
+					}
+					nHistgr[nPeakPos]=(int) (0.5*(imgstat.histogram[nPeakPos-1]+imgstat.histogram[nPeakPos+1]));
+					for(k=nPeakPos+1;k<nHistSize;k++)
+					{
+						nHistgr[k]=imgstat.histogram[k];
+						if(nHistgr[k]>nMaxCount)
+						{
+							nMaxCount = nHistgr[k];
+							nPeakNew = k;
+						}
+					}
+					nPeakPos=nPeakNew;
+					//nHistSize = nHistSize;
 					
 					//estimating width of a peak
 					//going to the left

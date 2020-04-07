@@ -249,8 +249,11 @@ public class CDDialog implements DialogListener{
 				cd.overlay_= new Overlay();
 				cd.initConvKernel(this,iCh-1);
 				RoiSelected= imp.getRoi();
-				nImagePos = imp.convertIndexToPosition(imp.getSlice());
+				//nImagePos = imp.convertIndexToPosition(imp.getSlice());
+				nImagePos = new int[3];
 				nImagePos[0]=iCh;
+				nImagePos[1]=imp.getSlice();
+				nImagePos[2]=imp.getFrame();
 				imp.setPositionWithoutUpdate(nImagePos[0], nImagePos[1],nImagePos[2]);
 				ip = imp.getProcessor().duplicate();
 				
