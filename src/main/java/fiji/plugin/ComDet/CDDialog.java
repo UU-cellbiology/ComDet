@@ -74,6 +74,7 @@ public class CDDialog implements DialogListener{
 	 * 0 - do not add
 	 * 1 - add all detections
 	 * 2 - add only colocalized particles
+	 * 3 - add only non-colocalized particles
 	 * **/
 	int nRoiManagerAdd;
 	/** ROIs of what shape to add **/
@@ -99,7 +100,7 @@ public class CDDialog implements DialogListener{
 		sROIManagerOneCh = new String [] {
 				"Nothing", "All detections"};
 		sROIManagerMultiCh = new String [] {
-				"Nothing", "All detections","Only colocalized particles"};
+				"Nothing", "All detections","Only colocalized particles", "Only non-colocalized particles"};
 		sRoiOptions = new String [] {"Ovals","Rectangles"};
 		
 	}
@@ -163,7 +164,7 @@ public class CDDialog implements DialogListener{
 			Prefs.set("ComDet.sROIManagerMulti", sROIManagerMultiCh[nRoiManagerAdd]);
 			
 			
-			if(!bColocalization && nRoiManagerAdd==2)
+			if(!bColocalization && nRoiManagerAdd>=2)
 			{
 				nRoiManagerAdd=0;
 				IJ.log("Cannot add colocalized particles to ROI, since colocalization option is unchecked. Nothing will be added.");

@@ -782,7 +782,15 @@ public class Detect_Particles implements PlugIn {
 				
 				if(cddlg.nRoiManagerAdd>0)
 				{
-					if( !(cddlg.nRoiManagerAdd==2 && nColocN ==1) )
+					///adding only colocalized particles
+					if(cddlg.nRoiManagerAdd==2 && nColocN >1 )
+					{						
+						spotROI.setName(String.format("ind%d_sl%d_fr%d_ch%d", nCount+1,(int)slices[nCount],(int)frames[nCount],(int)channel[nCount]));
+						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
+						roi_manager.addRoi(spotROI);
+					}
+					///adding only non-colocalized particles
+					if( cddlg.nRoiManagerAdd==3 && nColocN ==1 )
 					{						
 						spotROI.setName(String.format("ind%d_sl%d_fr%d_ch%d", nCount+1,(int)slices[nCount],(int)frames[nCount],(int)channel[nCount]));
 						imp.setPosition((int)channel[nCount],(int)slices[nCount],(int)frames[nCount]);
