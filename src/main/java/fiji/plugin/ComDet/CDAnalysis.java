@@ -735,6 +735,12 @@ public class CDAnalysis {
 							nPeakNew = k;
 						}
 					}
+					//no particles or flat image
+					if (nPeakPos==0)
+					{
+						results = new float [] {(float) imgstat.mean,(float) imgstat.stdDev};
+						return results;
+					}
 					nHistgr[nPeakPos]=(int) (0.5*(imgstat.histogram[nPeakPos-1]+imgstat.histogram[nPeakPos+1]));
 					for(k=nPeakPos+1;k<nHistSize;k++)
 					{

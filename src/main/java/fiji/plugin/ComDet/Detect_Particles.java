@@ -223,7 +223,9 @@ public class Detect_Particles implements PlugIn {
 		IJ.showStatus("Finding particles...done.");
 		if(cd.ptable.getCounter()<1)
 		{
-			IJ.error("No particles found!");
+			//IJ.error("No particles found!");
+			IJ.log("No particles found!");
+			showTableNoParticles();
 		}
 		else
 		{
@@ -878,6 +880,51 @@ public class Detect_Particles implements PlugIn {
 	            
 			cd.ptable.show("Results");
 
+	}
+	/** show Summary and Results tables in case there are no particles **/
+	void showTableNoParticles()
+	{
+		SummaryRT = new ResultsTable();
+
+    	for(int i = 1;i<=imageinfo[3]; i++)//slice
+    	{
+        	for(int j = 1;j<=imageinfo[4]; j++)//frame
+        	{
+        		SummaryRT.incrementCounter();
+        		SummaryRT.addValue("Slice", i);
+        		SummaryRT.addValue("Frame", j);
+        		for (int k=1;k<=imageinfo[2]; k++)
+        		{
+        			SummaryRT.addValue("Particles_in_Ch"+Integer.toString(k), 0);
+        			
+        		}
+        	}
+    	}
+    	
+		/*cd.ptable_lock.lock();
+		cd.ptable.incrementCounter();									
+		cd.ptable.addValue("Abs_frame", Float.NaN);
+		cd.ptable.addValue("X_(px)",Float.NaN);	
+		cd.ptable.addValue("Y_(px)",Float.NaN);
+		//ptable.addValue("Frame_Number", nFrame+1);
+		cd.ptable.addValue("Channel", Float.NaN);
+		cd.ptable.addValue("Slice", Float.NaN);
+		cd.ptable.addValue("Frame", Float.NaN);
+		cd.ptable.addValue("xMin", Float.NaN);
+		cd.ptable.addValue("yMin", Float.NaN);
+		cd.ptable.addValue("xMax", Float.NaN);
+		cd.ptable.addValue("yMax", Float.NaN);
+		cd.ptable.addValue("NArea", Float.NaN);
+		cd.ptable.addValue("IntegratedInt", Float.NaN);
+
+		cd.ptable_lock.unlock();
+*/
+        //Show Results table with coordinates
+
+		cd.ptable.show("Results");
+    	
+    	SummaryRT.show("Summary");
+		
 	}
 	
 	

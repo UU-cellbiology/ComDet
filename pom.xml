@@ -14,7 +14,7 @@
  
     <groupId>sc.fiji</groupId>
     <artifactId>ComDet_</artifactId>
-    <version>0.5.1</version>
+    <version>0.5.2</version>
  
     <name>ComDet</name>
     <description>ComDet Plugin for ImageJ</description>
