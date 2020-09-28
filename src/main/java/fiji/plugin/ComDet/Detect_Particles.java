@@ -895,16 +895,21 @@ public class Detect_Particles implements PlugIn {
 	        	
 
 	        }
-	        SummaryRT.show("Summary");
+	       
 			
 	        //Show Results table with coordinates
 	  
 	       	if(bSwitch)
 	       	{
+	       		SummaryRT.show("Results");
 	        	IJ.renameResults("Summary");
 	       		//IJ.renameResults("Temp", "Results")
 	        	cd.ptable=xTemp;
 	        }
+	       	else
+	       	{
+	       		SummaryRT.show("Summary");
+	       	}
 	        cd.ptable.show("Results");
 
 	       
