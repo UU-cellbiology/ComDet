@@ -9,11 +9,13 @@ import fiji.plugin.ComDet.CDDialog;
 import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
 import ij.measure.ResultsTable;
 import ij.plugin.PlugIn;
+import ij.plugin.filter.Analyzer;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 import ij.text.TextWindow;
@@ -829,8 +831,19 @@ public class Detect_Particles implements PlugIn {
 			int nCurrCombination;
 			int nCurrCh1;
 			int nCurrCh2;
+			boolean bSwitch=false;
+			ResultsTable xTemp = null;
 			
-			SummaryRT = new ResultsTable();
+			if(WindowManager.getWindow("Summary")==null || cddlg.nSummaryOptions==0)
+				SummaryRT = new ResultsTable();
+			else
+			{
+				xTemp=Analyzer.getResultsTable();
+				//IJ.renameResults("Temp");
+				IJ.renameResults("Summary", "Results");
+				SummaryRT = Analyzer.getResultsTable();
+				bSwitch = true;
+			}
 	        if(!cddlg.bColocalization)
 	        {
 	        	for(int i = 0;i<cd.nParticlesCount.length; i++)
@@ -885,8 +898,16 @@ public class Detect_Particles implements PlugIn {
 	        SummaryRT.show("Summary");
 			
 	        //Show Results table with coordinates
-	            
-			cd.ptable.show("Results");
+	  
+	       	if(bSwitch)
+	       	{
+	        	IJ.renameResults("Summary");
+	       		//IJ.renameResults("Temp", "Results")
+	        	cd.ptable=xTemp;
+	        }
+	        cd.ptable.show("Results");
+
+	       
 
 	}
 	/** show Summary and Results tables in case there are no particles **/

@@ -70,6 +70,10 @@ public class CDDialog implements DialogListener{
 	String [] sROIManagerOneCh;
 	String [] sROIManagerMultiCh;
 	
+	String [] sSummaryOptions;
+	/** 0 reset summary table; 1 append to a summary table **/
+	int nSummaryOptions;
+	
 	/** Flag determing whether to add detections to ROI Manager
 	 * 0 - do not add
 	 * 1 - add all detections
@@ -102,6 +106,8 @@ public class CDDialog implements DialogListener{
 		sROIManagerMultiCh = new String [] {
 				"Nothing", "All detections","Only colocalized particles", "Only non-colocalized particles"};
 		sRoiOptions = new String [] {"Ovals","Rectangles"};
+		
+		sSummaryOptions =new String [] {"Reset","Append"};
 		
 	}
 	/** function initializing dialog for particles detection,
@@ -148,6 +154,8 @@ public class CDDialog implements DialogListener{
 			fpDial.addCheckbox("Plot detected particles in all channels?", Prefs.get("ComDet.bPlotMultiChannels", false));
 			fpDial.addChoice("ROIs shape: ",sRoiOptions, Prefs.get("ComDet.nRoiOption", "Ovals"));
 			fpDial.addChoice("Add to ROI Manager:", sROIManagerMultiCh, Prefs.get("ComDet.sROIManagerMulti", "Nothing"));
+			fpDial.addChoice("Summary Table:", sSummaryOptions, Prefs.get("ComDet.sSummaryOptions", "Reset"));
+			
 			
 			fpDial.showDialog();
 			if (fpDial.wasCanceled())
@@ -162,7 +170,8 @@ public class CDDialog implements DialogListener{
 			Prefs.set("ComDet.nRoiOption", sRoiOptions[nRoiOption]);			
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
 			Prefs.set("ComDet.sROIManagerMulti", sROIManagerMultiCh[nRoiManagerAdd]);
-			
+			nSummaryOptions = fpDial.getNextChoiceIndex();
+			Prefs.set("ComDet.sSummaryOptions", sSummaryOptions[nSummaryOptions]);
 			
 			if(!bColocalization && nRoiManagerAdd>=2)
 			{
@@ -188,6 +197,7 @@ public class CDDialog implements DialogListener{
 			{
 				fpDial.addChoice("ROIs shape: ",sRoiOptions, Prefs.get("ComDet.nRoiOption", "Ovals"));
 				fpDial.addChoice("Add to ROI Manager:", sROIManagerOneCh, Prefs.get("ComDet.sROIManagerOne", "Nothing"));
+				fpDial.addChoice("Summary Table:", sSummaryOptions, Prefs.get("ComDet.sSummaryOptions", "Reset"));
 			}
 
 			ImagePlus fakeimp=new ImagePlus("quick",new FloatProcessor(1,1));
@@ -297,6 +307,7 @@ public class CDDialog implements DialogListener{
 		{
 			nRoiOption = fpDial.getNextChoiceIndex();
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
+			nSummaryOptions = fpDial.getNextChoiceIndex();
 			
 		}
 		//bPreview = fpDial.getNextBoolean();
@@ -327,7 +338,10 @@ public class CDDialog implements DialogListener{
 		Prefs.set("ComDet.dSNRT"+sChN, nSensitivity[iCh-1]);
 		
 		if(ChNumber == 1)		
-			Prefs.set("ComDet.sROIManagerOne", sROIManagerOneCh[nRoiManagerAdd]);		
+		{
+			Prefs.set("ComDet.sROIManagerOne", sROIManagerOneCh[nRoiManagerAdd]);
+		}
+		Prefs.set("ComDet.sSummaryOptions", sSummaryOptions[nSummaryOptions]);
 		
 		Prefs.set("ComDet.nRoiOption", sRoiOptions[nRoiOption]);		
 		
