@@ -11,6 +11,7 @@ Main topics:
 * [How to install plugin](https://github.com/ekatrukha/ComDet/wiki/How-to-install-plugin)
 * [How to use plugin (Text Tutorial)](https://github.com/ekatrukha/ComDet/wiki/How-to-use-plugin-%28Text-Tutorial%29)
 * [How does detection work?](https://github.com/ekatrukha/ComDet/wiki/How-does-detection-work%3F)
+* [How to cite plugin?](https://github.com/ekatrukha/ComDet/wiki/How-to-cite-plugin%3F)
 <br />
 <br />
 Developed in <a href='http://cellbiology.science.uu.nl/'>Cell Biology group</a> of Utrecht University.  
