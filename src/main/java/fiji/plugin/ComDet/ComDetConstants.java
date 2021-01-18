@@ -2,7 +2,7 @@ package fiji.plugin.ComDet;
 
 public interface ComDetConstants {
 
-	public static final String ComDetVersion="0.5.3";
+	public static final String ComDetVersion="0.5.4";
 	
 	//order of results column in the table
 	public static final int Col_absFrame=0;
