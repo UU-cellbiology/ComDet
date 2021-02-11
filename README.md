@@ -2,7 +2,6 @@ ComDet
 ===
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4281064.svg)](https://doi.org/10.5281/zenodo.4281064)
-
 <br />
 <img src="http://katpyxa.info/software/ComDet/comdet_emblem.png" align="right" style="padding:100px"/> This is <a href="http://www.gnu.org/licenses/gpl.html">open-source</a> <a href='http://rsbweb.nih.gov/ij/'>ImageJ</a> plugin for finding and/or analyzing colocalization of bright intensity spots (particles, vesicles, comets, dots, etc) in images with heterogeneous background (microscopy, astronomy, engineering, etc).
 <br />
