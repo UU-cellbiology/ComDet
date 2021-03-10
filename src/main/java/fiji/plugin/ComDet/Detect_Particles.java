@@ -869,7 +869,18 @@ public class Detect_Particles implements PlugIn {
 	/** show Summary and Results tables in case there are no particles **/
 	void showTableNoParticles()
 	{
-		SummaryRT = new ResultsTable();
+	
+		
+		if(WindowManager.getWindow("Summary")==null || cddlg.nSummaryOptions==0)
+			{SummaryRT = new ResultsTable();}
+		else
+		{
+			//xTemp=Analyzer.getResultsTable();
+			//IJ.renameResults("Temp");
+			IJ.renameResults("Summary", "Results");
+			SummaryRT = Analyzer.getResultsTable();
+			//bSwitch = true;
+		}
 
     	for(int i = 1;i<=imageinfo[3]; i++)//slice
     	{
@@ -886,30 +897,12 @@ public class Detect_Particles implements PlugIn {
         	}
     	}
     	
-		/*cd.ptable_lock.lock();
-		cd.ptable.incrementCounter();									
-		cd.ptable.addValue("Abs_frame", Float.NaN);
-		cd.ptable.addValue("X_(px)",Float.NaN);	
-		cd.ptable.addValue("Y_(px)",Float.NaN);
-		//ptable.addValue("Frame_Number", nFrame+1);
-		cd.ptable.addValue("Channel", Float.NaN);
-		cd.ptable.addValue("Slice", Float.NaN);
-		cd.ptable.addValue("Frame", Float.NaN);
-		cd.ptable.addValue("xMin", Float.NaN);
-		cd.ptable.addValue("yMin", Float.NaN);
-		cd.ptable.addValue("xMax", Float.NaN);
-		cd.ptable.addValue("yMax", Float.NaN);
-		cd.ptable.addValue("NArea", Float.NaN);
-		cd.ptable.addValue("IntegratedInt", Float.NaN);
 
-		cd.ptable_lock.unlock();
-*/
-        //Show Results table with coordinates
+       		SummaryRT.show("Results");
+        	IJ.renameResults("Summary");
+       		
+        	cd.ptable.show("Results");
 
-		cd.ptable.show("Results");
-    	
-    	SummaryRT.show("Summary");
-		
 	}
 	
 	
