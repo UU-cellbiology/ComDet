@@ -79,7 +79,8 @@
 		<!-- main-class>fiji.plugin.ComDet</main-class -->
 		<package-name>fiji.plugin.ComDet</package-name>
 		<license.licenseName>gpl_v3</license.licenseName>
-		<license.copyrightOwners>Fiji distribution of ImageJ for the life sciences.</license.copyrightOwners>
+		<license.copyrightOwners>Cell Biology, Neurobiology and Biophysics
+Department of Utrecht University.</license.copyrightOwners>
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
