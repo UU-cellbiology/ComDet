@@ -58,11 +58,12 @@ public class ArrayConverter {
 	
 	/**
 	 * Separates data from dataPoints[N][K+1] to yDataPoints[N] and xDatapoints[N][K].
-	 * <p>
-	 * dataPoints[j] = yj xj0 xj1 xj2 ... xj[K-1]<br>
-	 * =><br>
-	 * yDataPoints    = y0 y1 y2 ... yN<br>
-	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]<br>
+	 * <pre>{@code
+	 * dataPoints[j] = yj xj0 xj1 xj2 ... xj[K-1]
+	 * =>
+	 * yDataPoints    = y0 y1 y2 ... yN
+	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]
+	 * }</pre>
 	 */
 	public static SeparatedData separateMultiDimDataToXY(double[][] dataPoints) {
 		SeparatedData result = new SeparatedData();
@@ -79,11 +80,12 @@ public class ArrayConverter {
 	
 	/**
 	 * Combines K-dimensional input data into one 2d-array:
-	 * <p>
-	 * yDataPoints    = y0 y1 y2 ... yN<br>
-	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]<br>
-	 * =><br>
-	 * result[j] = yj xj0 xj1 xj2 ... xj[K-1]<br>
+	 * <pre>{@code
+	 * yDataPoints    = y0 y1 y2 ... yN
+	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]
+	 * =>
+	 * result[j] = yj xj0 xj1 xj2 ... xj[K-1]
+	 * }</pre>
 	 */
 	public static double[][] combineMultiDimDataPoints(double[] yDataPoints, double[][] xDataPoints) {
 		double[][] result = new double[yDataPoints.length][xDataPoints.length + 1];
@@ -98,11 +100,12 @@ public class ArrayConverter {
 	
 	/**
 	 * Combines K-dimensional input data into one 2d-array:
-	 * <p>
-	 * yDataPoints    = y0 y1 y2 ... yN<br>
-	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]<br>
-	 * =><br>
-	 * result[j] = yj xj0 xj1 xj2 ... xj[K-1]<br>
+	 * <pre>{@code
+	 * yDataPoints    = y0 y1 y2 ... yN
+	 * xDataPoints[i] = xi0 xi1 xi2 ... xi[K-1]
+	 * =>
+	 * result[j] = yj xj0 xj1 xj2 ... xj[K-1]
+	 * }</pre>
 	 */
 	public static double[][] combineMultiDimDataPoints(float[] yDataPoints, float[][] xDataPoints) {
 		double[][] result = new double[yDataPoints.length][xDataPoints.length + 1];

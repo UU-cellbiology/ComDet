@@ -179,7 +179,8 @@ public class Sort_Results_CD implements PlugIn {
 	/** Function that sorts ResultsTable (used by external calls)
 	 * @param smlext CDanalysis object containing a table 
 	 * @param nSortingColumn number of column to sort
-	 * @param descending order of sorting**/
+	 * @param ascending order of sorting
+	 */
 	public static void sorting_external_silent(CDAnalysis smlext, int nSortingColumn, boolean ascending) 
 	{
 		int colNumber;
