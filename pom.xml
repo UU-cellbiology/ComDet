@@ -18,7 +18,7 @@
  
     <name>ComDet</name>
     <description>ComDet Plugin for ImageJ</description>
-    <url>https://github.com/ekatrukha/ComDet</url>
+    <url>https://github.com/UU-cellbiology/ComDet</url>
     <inceptionYear>2012</inceptionYear>
     <organization>
         <name>Fiji</name>
@@ -62,14 +62,14 @@
     </mailingLists>
  
     <scm>
-        <connection>scm:git:git://github.com/ekatrukha/ComDet</connection>
-        <developerConnection>scm:git:git@github.com:ekatrukha/ComDet</developerConnection>
+        <connection>scm:git:git://github.com/UU-cellbiology/ComDet</connection>
+        <developerConnection>scm:git:git@github.com:UU-cellbiology/ComDet</developerConnection>
         <tag>HEAD</tag>
-        <url>https://github.com/ekatrukha/ComDet</url>
+        <url>https://github.com/UU-cellbiology/ComDet</url>
     </scm>
     <issueManagement>
         <system>GitHub</system>
-        <url>http://github.com/ekatrukha/ComDet/issues</url>
+        <url>http://github.com/UU-cellbiology/ComDet/issues</url>
     </issueManagement>
     <ciManagement>
         <system>None</system>
