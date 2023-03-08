@@ -82,13 +82,6 @@
 		<license.copyrightOwners>Fiji distribution of ImageJ for the life sciences.</license.copyrightOwners>
 	</properties>
 
-	<repositories>
-		<repository>
-			<id>scijava.public</id>
-			<url>https://maven.scijava.org/content/groups/public</url>
-		</repository>
-	</repositories>
-
 	<dependencies>
 		<!-- ImageJ dependencies -->
 		<dependency>
@@ -106,4 +99,11 @@
 			<artifactId>fiji-lib</artifactId>
 		</dependency>
 	</dependencies>
+
+	<repositories>
+		<repository>
+			<id>scijava.public</id>
+			<url>https://maven.scijava.org/content/groups/public</url>
+		</repository>
+	</repositories>
 </project>
