@@ -37,7 +37,7 @@ public class ArrayConverter {
 			//if (a[i].getClass().getName())
 			result[i] = new double[a[i].length];
 			for (int j = 0; j < a[i].length; j++) {
-				result[i][j] = (float) a[i][j];
+				result[i][j] = a[i][j];
 			}
 		}
 		return result;

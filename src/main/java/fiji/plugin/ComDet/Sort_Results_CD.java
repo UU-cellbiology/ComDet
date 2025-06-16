@@ -42,22 +42,22 @@ class tableComparator implements Comparator<double []> {
 
     // Implement the abstract method which tells
     // how to order the two elements in the array.
-    public int compare(double [] o1, double [] o2) {
-        double[] row1 = (double[])o1;
-        double[] row2 = (double[])o2;
+    @Override
+	public int compare(double [] o1, double [] o2) {
+        double[] row1 = o1;
+        double[] row2 = o2;
         int res;
-        if(row1[columnToSortOn]==row2[columnToSortOn])
+        if(row1[columnToSortOn] == row2[columnToSortOn])
         	return 0;
-        if(row1[columnToSortOn]>row2[columnToSortOn])
+        if(row1[columnToSortOn] > row2[columnToSortOn])
         	res = 1;
         else
         	res = -1;
         if (ascending)
         	return res;
-        else 
-        	return (-1)*res;
-               
-        
+
+        return (-1)*res;
+                       
     }
 }
 

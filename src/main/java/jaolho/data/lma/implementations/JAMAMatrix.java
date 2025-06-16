@@ -41,6 +41,7 @@ public class JAMAMatrix extends Matrix implements LMAMatrix {
 		super(rows, cols);
 	}
 	
+	@Override
 	public void invert() throws LMAMatrix.InvertException {
 		try {
 			Matrix m = inverse();
@@ -56,14 +57,17 @@ public class JAMAMatrix extends Matrix implements LMAMatrix {
 		}
 	}
 
+	@Override
 	public void setElement(int row, int col, double value) {
 		set(row, col, value);
 	}
 
+	@Override
 	public double getElement(int row, int col) {
 		return get(row, col);
 	}
 
+	@Override
 	public void multiply(double[] vector, double[] result) {
 		for (int i = 0; i < this.getRowDimension(); i++) {
 			result[i] = 0;

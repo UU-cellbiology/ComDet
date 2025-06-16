@@ -114,6 +114,8 @@ public class CDDialog implements DialogListener{
 	boolean bColocalization;
 	double dColocDistance;
 	boolean bPlotMultiChannels;
+	boolean bJoinROIs;
+	
 	
 	/** default constructor **/ 
 	public CDDialog()
@@ -166,13 +168,14 @@ public class CDDialog implements DialogListener{
 		}
 		
 		//multichannel input, ask user for the parameters
-		if(ChNumber>1)
+		if(ChNumber > 1)
 		{
 			fpDial = new GenericDialog("Detect Particles");
 			fpDial.addMessage("Multi-channel image is detected as input. \n");
 			fpDial.addCheckbox("Calculate colocalization?", Prefs.get("ComDet.bColocalization", false));
 			fpDial.addMessage("Colocalization analysis parameters:\n");
 			fpDial.addNumericField("Max distance between colocalized spots", Prefs.get("ComDet.dColocDistance", 4), 2,5," pixels");
+			fpDial.addCheckbox( "Join ROIs for intensity of colocalized particles", Prefs.get("ComDet.bJoinROIs", true) );
 			fpDial.addCheckbox("Plot detected particles in all channels?", Prefs.get("ComDet.bPlotMultiChannels", false));
 			fpDial.addChoice("ROIs shape: ",sRoiOptions, Prefs.get("ComDet.nRoiOption", "Ovals"));
 			fpDial.addChoice("Add to ROI Manager:", sROIManagerMultiCh, Prefs.get("ComDet.sROIManagerMulti", "Nothing"));
@@ -184,14 +187,22 @@ public class CDDialog implements DialogListener{
 	            return false;
 			bColocalization = fpDial.getNextBoolean();
 			Prefs.set("ComDet.bColocalization", bColocalization);			
+			
 			dColocDistance = fpDial.getNextNumber();
 			Prefs.set("ComDet.dColocDistance", dColocDistance);	
+			
+			bJoinROIs = fpDial.getNextBoolean();
+			Prefs.set("ComDet.bJoinROIs", bJoinROIs);	
+			
 			bPlotMultiChannels = fpDial.getNextBoolean();
 			Prefs.set("ComDet.bPlotMultiChannels", bPlotMultiChannels);
+			
 			nRoiOption = fpDial.getNextChoiceIndex();
 			Prefs.set("ComDet.nRoiOption", sRoiOptions[nRoiOption]);			
+			
 			nRoiManagerAdd = fpDial.getNextChoiceIndex();
 			Prefs.set("ComDet.sROIManagerMulti", sROIManagerMultiCh[nRoiManagerAdd]);
+			
 			nSummaryOptions = fpDial.getNextChoiceIndex();
 			Prefs.set("ComDet.sSummaryOptions", sSummaryOptions[nSummaryOptions]);
 			
@@ -203,7 +214,7 @@ public class CDDialog implements DialogListener{
 			Prefs.set("ComDet.sROIManagerMultiCh", sROIManagerMultiCh[nRoiManagerAdd]);
 		}
 
-		savedOverlay=imp.getOverlay();
+		savedOverlay = imp.getOverlay();
 		
 		
 		for (iCh=1;iCh<=ChNumber;iCh++)

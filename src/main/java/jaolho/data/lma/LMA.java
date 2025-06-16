@@ -371,16 +371,17 @@ public class LMA {
 		init(function, parameters, yDataPoints, xDataPoints, weights, alpha);
 	}
 	
-	protected void init(LMAMultiDimFunction function, double[] parameters, double[] yDataPoints, double[][] xDataPoints, double[] weights, LMAMatrix alpha) {
-		if (yDataPoints.length != xDataPoints.length) 
+	protected void init(final LMAMultiDimFunction function_, final double[] parameters_, final double[] yDataPoints_, final double[][] xDataPoints_, final double[] weights_, final LMAMatrix alpha_) 
+	{
+		if (yDataPoints_.length != xDataPoints_.length) 
 			throw new IllegalArgumentException("Data must contain an x-array for each y-value. Check your xDataPoints-array.");
-		this.function = function;
-		this.parameters = parameters;
-		this.yDataPoints = yDataPoints;
-		this.xDataPoints = xDataPoints;
-		this.weights = checkWeights(yDataPoints.length, weights);
-		this.incrementedParameters = new double[parameters.length]; 
-		this.alpha = alpha;
+		this.function = function_;
+		this.parameters = parameters_;
+		this.yDataPoints = yDataPoints_;
+		this.xDataPoints = xDataPoints_;
+		this.weights = checkWeights(yDataPoints_.length, weights_);
+		this.incrementedParameters = new double[parameters_.length]; 
+		this.alpha = alpha_;
 		this.beta = new double[parameters.length];
 		this.da = new double[parameters.length];
 	}
@@ -445,10 +446,10 @@ public class LMA {
 	 * Initializes and starts the fit. The stop condition is fetched from <code>this.stop()</code>.
 	 * Override <code>this.stop()</code> if you want to use another stop condition.
 	 */
-	public void fit(double lambda, double minDeltaChi2, int maxIterations) throws LMAMatrix.InvertException {
-		this.lambda = lambda;
-		this.minDeltaChi2 = minDeltaChi2;
-		this.maxIterations = maxIterations;
+	public void fit(final double lambda_, final double minDeltaChi2_, final int maxIterations_) throws LMAMatrix.InvertException {
+		this.lambda = lambda_;
+		this.minDeltaChi2 = minDeltaChi2_;
+		this.maxIterations = maxIterations_;
 		fit();
 	}
 	
@@ -588,39 +589,39 @@ public class LMA {
 				result += (float) (dy / fy); 
 			}
 		}
-		return result / (float) yDataPoints.length;
+		return result / yDataPoints.length;
 	}
 	
 	/** @return Estimate for goodness of fit, Sum[(y_data - y_fit)^2] / n */
 	public float chi2Goodness() {
-		return (float) (chi2 / (double) (yDataPoints.length - parameters.length));
+		return (float) (chi2 / (yDataPoints.length - parameters.length));
 	}
 	
 	/**
 	 * Checks that the given array in not null, filled with zeros or contain negative weights.
 	 * @return A valid weights array.
 	 */
-	protected double[] checkWeights(int length, double[] weights) {
+	protected double[] checkWeights(int length, double[] weights_) {
 		boolean damaged = false;
 		// check for null
-		if (weights == null) {
+		if (weights_ == null) {
 			damaged = true;
-			weights = new double[length];
+			weights_ = new double[length];
 		}
 		// check if all elements are zeros or if there are negative, NaN or Infinite elements
 		else {
 			boolean allZero = true;
 			boolean illegalElement = false;
-			for (int i = 0; i < weights.length && !illegalElement; i++) {
-				if (weights[i] < 0 || Double.isNaN(weights[i]) || Double.isInfinite(weights[i])) illegalElement = true;
-				allZero = (weights[i] == 0) && allZero;
+			for (int i = 0; i < weights_.length && !illegalElement; i++) {
+				if (weights_[i] < 0 || Double.isNaN(weights_[i]) || Double.isInfinite(weights_[i])) illegalElement = true;
+				allZero = (weights_[i] == 0) && allZero;
 			}
 			damaged = allZero || illegalElement;
 		}
-		if (!damaged) return weights;
+		if (!damaged) return weights_;
 		System.out.println("WARNING: weights were not well defined. All elements set to 1.");
-		Arrays.fill(weights, 1);
-		return weights;
+		Arrays.fill(weights_, 1);
+		return weights_;
 	}
 	
 	/**

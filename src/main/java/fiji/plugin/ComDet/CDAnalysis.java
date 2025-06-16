@@ -23,7 +23,6 @@
 package fiji.plugin.ComDet;
 
 import ij.IJ;
-import ij.ImagePlus;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
@@ -44,9 +43,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Stack;
-
-import fiji.plugin.ComDet.CDDialog;
-import fiji.plugin.ComDet.OneDGaussian;
 
 
 public class CDAnalysis {
@@ -181,8 +177,8 @@ public class CDAnalysis {
 		int [] pos;
 		int xMin,xMax,yMin,yMax;
 		
-		Stack<int[]> sstack = new Stack<int[]>( );
-		ArrayList<int[]> stackPost = new ArrayList<int[]>( );
+		Stack<int[]> sstack = new Stack<>( );
+		ArrayList<int[]> stackPost = new ArrayList<>( );
 		int [][] label = new int[width][height] ;
 		
 		
@@ -219,7 +215,7 @@ public class CDAnalysis {
 				/* start the float fill */
 				while ( !sstack.isEmpty()) 
 				{
-					pos = (int[]) sstack.pop() ;
+					pos = sstack.pop() ;
 					i = pos[0]; j = pos[1];
 					
 					//remove all spots at border
@@ -529,7 +525,7 @@ public class CDAnalysis {
 		}
 		
 		//background subtraction coefficient
-		fDivFactor = (float)(1.0/(double)nBgPixCount);
+		fDivFactor = (float)(1.0/nBgPixCount);
 		
 		//second run, normalization and background subtraction
 		for (i=0; i<fdg.nKernelSize[nChannel]; i++)
@@ -560,8 +556,7 @@ public class CDAnalysis {
 		
 		if (d >= 0)
 			return ans;
-		else
-			return -ans;
+		return -ans;
 		
 	}
 	
@@ -590,7 +585,7 @@ public class CDAnalysis {
 
 
 	
-	double [] getLocalThreshold(ImageProcessor ip_, int x, int y, int nRad, double coeff)
+	double [] getLocalThreshold(ImageProcessor ip_, int x, int y, int nRad)
 	{
 		double dIntNoise;
 		double dSD;
@@ -646,7 +641,7 @@ public class CDAnalysis {
 	**/
 	float [] getThreshold(ImageProcessor thImage)
 	{
-		ImageStatistics imgstat;
+		ImageStatistics imgstat_;
 
 		double  [][] dNoiseFit;
 		int nHistSize;
@@ -672,13 +667,13 @@ public class CDAnalysis {
 		//searching for the optimal for fitting intensity histogram's bin size
 	
 		thImage.setHistogramSize(nBinSizeEst);			
-		imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
-		nHistSize = imgstat.histogram.length;											
-		nPeakPos = imgstat.mode;
-		nMaxCount = imgstat.maxCount;
+		imgstat_ = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+		nHistSize = imgstat_.histogram.length;											
+		nPeakPos = imgstat_.mode;
+		nMaxCount = imgstat_.maxCount;
 		nHistgr = new int [nHistSize];
 		for(k=0;k<nHistSize;k++)
-			nHistgr[k]=imgstat.histogram[k];
+			nHistgr[k]=imgstat_.histogram[k];
 		
 		//Plot histplot = new Plot("Histogram","intensity", "count", dHistogram[0], dHistogram[1]);
 		//histplot.show();
@@ -716,9 +711,9 @@ public class CDAnalysis {
 					//ok, seems there is one very high peak/bin, let's remove it					
 					//nBinSizeEst = 256;
 					thImage.setHistogramSize(nBinSizeEst);	
-					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
-					nHistSize = imgstat.histogram.length;											
-					nPeakPos = imgstat.mode;
+					imgstat_ = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+					nHistSize = imgstat_.histogram.length;											
+					nPeakPos = imgstat_.mode;
 					/*
 					//nMaxCount = imgstat.maxCount;
 					//remove peak value
@@ -750,7 +745,7 @@ public class CDAnalysis {
 					nPeakNew=0; nMaxCount=0;
 					for(k=0;k<nPeakPos;k++)
 					{
-						nHistgr[k]=imgstat.histogram[k];
+						nHistgr[k]=imgstat_.histogram[k];
 						if(nHistgr[k]>nMaxCount)
 						{
 							nMaxCount = nHistgr[k];
@@ -760,13 +755,13 @@ public class CDAnalysis {
 					//no particles or flat image
 					if (nPeakPos==0)
 					{
-						results = new float [] {(float) imgstat.mean,(float) imgstat.stdDev};
+						results = new float [] {(float) imgstat_.mean,(float) imgstat_.stdDev};
 						return results;
 					}
-					nHistgr[nPeakPos]=(int) (0.5*(imgstat.histogram[nPeakPos-1]+imgstat.histogram[nPeakPos+1]));
+					nHistgr[nPeakPos]=(int) (0.5*(imgstat_.histogram[nPeakPos-1]+imgstat_.histogram[nPeakPos+1]));
 					for(k=nPeakPos+1;k<nHistSize;k++)
 					{
-						nHistgr[k]=imgstat.histogram[k];
+						nHistgr[k]=imgstat_.histogram[k];
 						if(nHistgr[k]>nMaxCount)
 						{
 							nMaxCount = nHistgr[k];
@@ -803,13 +798,13 @@ public class CDAnalysis {
 				{
 					//recalculate parameters
 					thImage.setHistogramSize(nBinSizeEst);			
-					imgstat = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
-					nHistSize = imgstat.histogram.length;											
-					nPeakPos = imgstat.mode;
-					nMaxCount = imgstat.maxCount;
+					imgstat_ = ImageStatistics.getStatistics(thImage, Measurements.MODE + Measurements.MEAN+Measurements.STD_DEV+Measurements.MIN_MAX, null);
+					nHistSize = imgstat_.histogram.length;											
+					nPeakPos = imgstat_.mode;
+					nMaxCount = imgstat_.maxCount;
 					nHistgr = new int[nHistSize];
 					for(k=0;k<nHistSize;k++)
-						nHistgr[k]=imgstat.histogram[k];					
+						nHistgr[k]=imgstat_.histogram[k];					
 				}
 			}
 			//histogram is ok, proceed to fitting
@@ -820,8 +815,8 @@ public class CDAnalysis {
 		}
 
 					
-		dMean = imgstat.min + nPeakPos*imgstat.binSize;
-		dSD = dWidth*imgstat.binSize/2.35;
+		dMean = imgstat_.min + nPeakPos*imgstat_.binSize;
+		dSD = dWidth*imgstat_.binSize/2.35;
 		//fitting range +/- 3*SD
 		dLeftWidth = nPeakPos - 3*dWidth/2.35;
 		if(dLeftWidth<0)
@@ -835,11 +830,11 @@ public class CDAnalysis {
 		dNoiseFit = new double [2][nUpCount-nDownCount+1];
 		for(i=nDownCount;i<=nUpCount;i++)
 		{
-			dNoiseFit[0][i-nDownCount] = imgstat.min + i*imgstat.binSize;
-			dNoiseFit[1][i-nDownCount] = (double)nHistgr[i];
+			dNoiseFit[0][i-nDownCount] = imgstat_.min + i*imgstat_.binSize;
+			dNoiseFit[1][i-nDownCount] = nHistgr[i];
 		}
 		
-		fitlma = new LMA(new OneDGaussian(), new double[] {(double)nMaxCount, dMean, dSD}, dNoiseFit);
+		fitlma = new LMA(new OneDGaussian(), new double[] {nMaxCount, dMean, dSD}, dNoiseFit);
 		fitlma.fit();
 		dMean = fitlma.parameters[1];
 		dSD = fitlma.parameters[2];
@@ -878,7 +873,7 @@ public class CDAnalysis {
 
 		float[] pixels2 = new float[pixelCount];
 		//float[] pixels2;
-		System.arraycopy((float[])ip.getPixels(),0,pixels2,0,pixelCount);
+		System.arraycopy(ip.getPixels(),0,pixels2,0,pixelCount);
 	
 		Arrays.sort(pixels2);
 		//int middle = pixels2.length/2;
@@ -886,7 +881,7 @@ public class CDAnalysis {
 		int qi75 = Math.round(pixelCount*0.75f);
 	
 		float IQR = pixels2[qi75]-pixels2[qi25];
-		double h= 2*IQR*Math.pow((double)pixelCount, -1.0/3.0);
+		double h= 2*IQR*Math.pow(pixelCount, -1.0/3.0);
 		
 		return (int)Math.round((pixels2[pixelCount-1]-pixels2[0])/h);
 			
@@ -932,9 +927,8 @@ public class CDAnalysis {
 	 * @param kernel convolution 1D kernel
 	 * @param kw
 	 * @param kh
-	 * @return
 	 */
-	boolean SMLconvolveFloat(ImageProcessor dupip, float[] kernel, int kw, int kh)
+	void SMLconvolveFloat(final ImageProcessor dupip, float[] kernel, int kw, int kh)
 	{
 		
 		int width = dupip.getWidth();
@@ -977,8 +971,7 @@ public class CDAnalysis {
 				pixels[x+y*width] = (float)(sum);
 			}
     	}
-	
-   		return true;
+
 	}
 	
 	float SMLgetPixel(int x, int y, float[] pixels, int width, int height) {
@@ -1024,7 +1017,7 @@ public class CDAnalysis {
                                     int p = pixel0 + readFrom*pointInc;
                                     for (int i=readFrom; i<readTo; i++ ,p+=pointInc)
                                         cache1[i] = pixels[p];
-                                    SMLconvolveLine(cache1, pixels, gaussKernel, readFrom, readTo, writeFrom, writeTo, pixel0, pointInc);
+                                    SMLconvolveLine(cache1, pixels, gaussKernel, writeFrom, writeTo, pixel0, pointInc);
                                
                                     
          }
@@ -1032,8 +1025,7 @@ public class CDAnalysis {
         return;
     }
 	 
-	void SMLconvolveLine( final float[] input, final float[] pixels, final float[][] kernel, final int readFrom,
-	            final int readTo, final int writeFrom, final int writeTo, final int point0, final int pointInc) {
+	void SMLconvolveLine( final float[] input, final float[] pixels, final float[][] kernel, final int writeFrom, final int writeTo, final int point0, final int pointInc) {
 	        final int length = input.length;
 	        final float first = input[0];                 //out-of-edge pixels are replaced by nearest edge pixels
 	        final float last = input[length-1];

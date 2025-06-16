@@ -30,9 +30,11 @@ import java.util.Arrays;
 public class TestFunctions {
 	
 	public static LMAFunction sin = new LMAFunction() {
+		@Override
 		public double getY(double x, double[] a) {
 			return a[0] * Math.sin(x / a[1]);
 		}
+		@Override
 		public double getPartialDerivate(double x, double[] a, int parameterIndex) {
 			switch (parameterIndex) {
 				case 0: return Math.sin(x / a[1]);

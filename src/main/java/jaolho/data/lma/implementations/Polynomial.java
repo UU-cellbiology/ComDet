@@ -33,6 +33,7 @@ public class Polynomial extends LMAFunction {
 	 * @return The partial derivate of the polynomial which is
 	 * x to the power of the parameter index.
 	 */
+	@Override
 	public double getPartialDerivate(double x, double[] a, int parameterIndex) {
 		return pow(x, parameterIndex);
 	}
@@ -41,6 +42,7 @@ public class Polynomial extends LMAFunction {
 	 * Polynomial y = a_n * x^n + ... + a_2 * x^2 + a_1 * x + a_0
 	 * @param a 0: a_0, 1: a_1, 2: a_2, ..., a_n
 	 */
+	@Override
 	public double getY(double x, double[] a) {
 		double result = 0;
 		for (int i = 0; i < a.length; i++) {
