@@ -2,7 +2,7 @@
  * #%L
  * ComDet Plugin for ImageJ
  * %%
- * Copyright (C) 2012 - 2023 Cell Biology, Neurobiology and Biophysics
+ * Copyright (C) 2012 - 2025 Cell Biology, Neurobiology and Biophysics
  * Department of Utrecht University.
  * %%
  * This program is free software: you can redistribute it and/or modify
